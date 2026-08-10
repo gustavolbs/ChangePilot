@@ -10,7 +10,6 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9 # or your specific version
           run_install: false
 
       - name: Use Node.js 18
