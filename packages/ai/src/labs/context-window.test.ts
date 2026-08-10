@@ -157,5 +157,13 @@ describe("ContextWindow", () => {
     expect(() => {
       evaluateContextWindow(128, [], 28);
     }).not.toThrow();
+    expect(evaluateContextWindow(128, [], 28)).toEqual({
+      contextWindowTokens: 128,
+      inputTokenCount: 0,
+      outputTokenBudget: 28,
+      remainingTokens: 100,
+      status: "fits",
+      totalRequiredTokens: 28,
+    });
   });
 });

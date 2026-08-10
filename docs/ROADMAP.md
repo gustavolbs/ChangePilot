@@ -41,7 +41,7 @@
 - [x] System messages
 - [x] User messages
 - [x] Assistant messages
-- [x] Tool messages
+- [ ] Tool messages
 - [x] Conversa como sequência estruturada
 - [x] Modelar messages em TypeScript
 - [x] Separar domínio da aplicação de formatos específicos de providers

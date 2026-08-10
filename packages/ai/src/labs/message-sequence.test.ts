@@ -76,8 +76,8 @@ describe("MessageSequence", () => {
       "Analyze only the supplied evidence.",
       [
         {
-          userMessage: "Review the authentication diff.",
-          assistantMessage: "The redirect is not validated.",
+          userMessage: " Review the authentication diff. ",
+          assistantMessage: " The redirect is not validated. ",
         },
         {
           userMessage: "Now consider the integration test.",
@@ -95,11 +95,11 @@ describe("MessageSequence", () => {
       },
       {
         role: "user",
-        content: "Review the authentication diff.",
+        content: " Review the authentication diff. ",
       },
       {
         role: "assistant",
-        content: "The redirect is not validated.",
+        content: " The redirect is not validated. ",
       },
       {
         role: "user",
@@ -154,6 +154,36 @@ describe("MessageSequence", () => {
           {
             userMessage: "",
             assistantMessage: "The redirect is not validated.",
+          },
+        ],
+        "Now consider the integration test.",
+      );
+    }).toThrow("Historical messages must be non-empty strings.");
+  });
+
+  it("fails when any historical message is empty", () => {
+    expect(() => {
+      createMessageSequence(
+        "Analyze only the supplied evidence.",
+        [
+          {
+            userMessage: "Review the authentication diff.",
+            assistantMessage: "",
+          },
+        ],
+        "Now consider the integration test.",
+      );
+    }).toThrow("Historical messages must be non-empty strings.");
+  });
+
+  it("fails when any content is only white spaces", () => {
+    expect(() => {
+      createMessageSequence(
+        "Analyze only the supplied evidence.",
+        [
+          {
+            userMessage: "Review the authentication diff.",
+            assistantMessage: "            ",
           },
         ],
         "Now consider the integration test.",
