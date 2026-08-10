@@ -38,13 +38,13 @@
 
 ## 01.4 — Messages e Roles
 
-- [ ] System messages
-- [ ] User messages
-- [ ] Assistant messages
-- [ ] Tool messages
-- [ ] Conversa como sequência estruturada
-- [ ] Modelar messages em TypeScript
-- [ ] Separar domínio da aplicação de formatos específicos de providers
+- [x] System messages
+- [x] User messages
+- [x] Assistant messages
+- [x] Tool messages
+- [x] Conversa como sequência estruturada
+- [x] Modelar messages em TypeScript
+- [x] Separar domínio da aplicação de formatos específicos de providers
 
 ## 01.5 — Prompt Engineering
 
