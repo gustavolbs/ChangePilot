@@ -26,11 +26,27 @@ export const evaluateContextWindow = (
   segments: readonly ContextSegment[],
   outputTokenBudget: number,
 ): ContextWindowEvaluation => {
-  contextWindowTokens = Math.trunc(Math.max(0, contextWindowTokens));
-  outputTokenBudget = Math.trunc(Math.max(0, outputTokenBudget));
+  if (contextWindowTokens <= 0 || !Number.isInteger(contextWindowTokens)) {
+    throw new RangeError(
+      "Context window tokens cannot be negative, zero, or fractional.",
+    );
+  }
 
-  const count = segments.reduce((acc, segment) => acc + segment.tokenCount, 0);
-  const totalRequiredTokens = count + outputTokenBudget || 0;
+  if (outputTokenBudget < 0 || !Number.isInteger(outputTokenBudget)) {
+    throw new RangeError(
+      "Output token budget cannot be negative or fractional.",
+    );
+  }
+
+  const count = segments.reduce((acc, segment) => {
+    if (segment.tokenCount < 0 || !Number.isInteger(segment.tokenCount)) {
+      throw new RangeError(
+        "Segment token counts cannot be negative or fractional.",
+      );
+    }
+    return acc + segment.tokenCount;
+  }, 0);
+  const totalRequiredTokens = count + outputTokenBudget;
 
   const commonProps = {
     contextWindowTokens,
