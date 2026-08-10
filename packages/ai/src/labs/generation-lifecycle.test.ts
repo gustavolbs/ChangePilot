@@ -33,7 +33,7 @@ describe("Generation Lifecycle", () => {
         type: "provider-api",
       },
       {
-        responsible: "provider-service",
+        responsible: "model-runtime",
         tokenizationInput:
           '{"input":{"objective":"Identify the main architectural risk","evidence":"diff --git a/src/example.ts..."}}',
         type: "tokenization",
@@ -45,7 +45,7 @@ describe("Generation Lifecycle", () => {
         type: "generation",
       },
       {
-        responsible: "client-boundary",
+        responsible: "provider-service",
         serializedResponse:
           '{"output":"The change introduces coupling between the API and UI."}',
         type: "response-serialization",

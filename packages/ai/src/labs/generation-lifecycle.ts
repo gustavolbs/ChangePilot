@@ -21,7 +21,7 @@ type LifecycleEvent =
     }
   | {
       type: "tokenization";
-      responsible: "provider-service";
+      responsible: "model-runtime";
       tokenizationInput: string;
     }
   | {
@@ -31,7 +31,7 @@ type LifecycleEvent =
     }
   | {
       type: "response-serialization";
-      responsible: "client-boundary";
+      responsible: "provider-service";
       serializedResponse: string;
     }
   | {
@@ -70,7 +70,7 @@ export const createGenerationLifecycleTrace = (
     },
     {
       type: "tokenization",
-      responsible: "provider-service",
+      responsible: "model-runtime",
       tokenizationInput: serializedRequest,
     },
     {
@@ -80,7 +80,7 @@ export const createGenerationLifecycleTrace = (
     },
     {
       type: "response-serialization",
-      responsible: "client-boundary",
+      responsible: "provider-service",
       serializedResponse,
     },
     {
