@@ -48,14 +48,14 @@
 
 ## 01.5 — Prompt Engineering
 
-- [ ] Instruction prompting
-- [ ] Zero-shot
-- [ ] Few-shot
-- [ ] Exemplos positivos e negativos
-- [ ] Delimitadores
-- [ ] Restrições explícitas
-- [ ] Ambiguidade de instruções
-- [ ] Prompt injection em nível introdutório
+- [x] Instruction prompting
+- [x] Zero-shot
+- [x] Few-shot
+- [x] Exemplos positivos e negativos
+- [x] Delimitadores
+- [x] Restrições explícitas
+- [x] Ambiguidade de instruções
+- [x] Prompt injection em nível introdutório
 
 ## 01.6 — Context Engineering
 
