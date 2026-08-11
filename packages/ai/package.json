@@ -8,7 +8,7 @@
   },
   "scripts": {
     "check-types": "tsc --noEmit",
-    "generate:openai": "node --env-file=../../.env.local --import tsx src/providers/openai/run-first-generation.ts",
+    "generate:openai": "node --env-file=../../.env --import tsx src/providers/openai/run-first-generation.ts",
     "test": "vitest run"
   },
   "devDependencies": {
