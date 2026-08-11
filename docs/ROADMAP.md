@@ -80,14 +80,14 @@
 
 ## 01.8 — Primeiro provider real
 
-- [ ] Comparar providers disponíveis
-- [ ] Escolher um provider para o primeiro adapter
-- [ ] Entender por que precisamos dele neste momento
-- [ ] Configurar secrets corretamente
-- [ ] Instalar SDK oficial
-- [ ] Realizar primeira geração real
-- [ ] Inspecionar request e response
-- [ ] Identificar elementos específicos do provider
+- [x] Comparar providers disponíveis
+- [x] Escolher um provider para o primeiro adapter
+- [x] Entender por que precisamos dele neste momento
+- [x] Configurar secrets corretamente
+- [x] Instalar SDK oficial
+- [x] Realizar primeira geração real
+- [x] Inspecionar request e response
+- [x] Identificar elementos específicos do provider
 
 ## 01.9 — Modelagem de Generation
 

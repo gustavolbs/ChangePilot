@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-08-09
+Last updated: 2026-08-11
 
 ## Current milestone
 
@@ -13,10 +13,14 @@ Foundation / Bootstrap
 - Hono API
 - Web → API communication
 - shared TypeScript configuration
+- first real LLM integration
+- official OpenAI SDK
+- manual generation with the Responses API
+- basic request, response, and usage inspection
 
 ## What does not exist yet
 
-- LLM integration
+- provider-neutral generation contract and adapter (planned for Lesson 01.9)
 - RAG
 - embeddings
 - MCP
