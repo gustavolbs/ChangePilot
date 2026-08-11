@@ -8,11 +8,17 @@
   },
   "scripts": {
     "check-types": "tsc --noEmit",
+    "generate:openai": "node --env-file=../../.env --import tsx src/providers/openai/run-first-generation.ts",
     "test": "vitest run"
   },
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",
+    "@types/node": "^26.2.0",
+    "tsx": "^4.23.12",
     "typescript": "^5.9.2",
     "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "openai": "^7.4.0"
   }
 }
