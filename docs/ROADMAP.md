@@ -70,13 +70,13 @@
 
 ## 01.7 — Parâmetros de geração
 
-- [ ] Temperature
-- [ ] Top-P
-- [ ] Max output tokens
-- [ ] Stop sequences
-- [ ] Determinismo vs variabilidade
-- [ ] Quando não alterar parâmetros
-- [ ] Separar parâmetros de negócio de parâmetros específicos do provider
+- [x] Temperature
+- [x] Top-P
+- [x] Max output tokens
+- [x] Stop sequences
+- [x] Determinismo vs variabilidade
+- [x] Quando não alterar parâmetros
+- [x] Separar parâmetros de negócio de parâmetros específicos do provider
 
 ## 01.8 — Primeiro provider real
 
