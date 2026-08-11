@@ -59,14 +59,14 @@
 
 ## 01.6 — Context Engineering
 
-- [ ] Prompt engineering vs context engineering
-- [ ] Seleção de contexto
-- [ ] Ordenação de informações
-- [ ] Context relevance
-- [ ] Context pollution
-- [ ] Instruções vs dados
-- [ ] Construção programática de contexto
-- [ ] Aplicação ao ChangePilot
+- [x] Prompt engineering vs context engineering
+- [x] Seleção de contexto
+- [x] Ordenação de informações
+- [x] Context relevance
+- [x] Context pollution
+- [x] Instruções vs dados
+- [x] Construção programática de contexto
+- [x] Aplicação ao ChangePilot
 
 ## 01.7 — Parâmetros de geração
 
