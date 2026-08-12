@@ -27,6 +27,12 @@ export function createOpenAIGenerationAdapter(
       validateMessages(request.messages, PROVIDER);
       validateStopSequences(request.parameters.stopSequences);
 
+      if (request.parameters.stopSequences.length > 0) {
+        throw new RangeError(
+          `${PROVIDER}: stopSequences are not supported by this adapter.`,
+        );
+      }
+
       const openAIRequest = mapRequest({
         model: options.model,
         request,
