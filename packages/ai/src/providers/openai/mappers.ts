@@ -1,13 +1,10 @@
+import type { ResponseCreateParamsNonStreaming } from "openai/resources/responses/responses";
 import type {
-  Response,
-  ResponseCreateParamsNonStreaming,
-} from "openai/resources/responses/responses";
-import {
   FinishReason,
   GenerationRequest,
   GenerationResponse,
 } from "../../generation/generation.js";
-import { OpenAIResponseSnapshot } from "./openai-generation-adapter.js";
+import type { OpenAIResponseSnapshot } from "./openai-generation-adapter.js";
 
 type MapRequestInput = {
   model: string;
@@ -89,7 +86,7 @@ export const mapResponse = (
 };
 
 export const mapFinishReason = (
-  response: Pick<Response, "status" | "incomplete_details">,
+  response: Pick<OpenAIResponseSnapshot, "status" | "incomplete_details">,
 ): FinishReason => {
   if (response.status === "completed") {
     return "completed";

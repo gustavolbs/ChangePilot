@@ -6,7 +6,10 @@ import type {
 } from "../../generation/generation.js";
 import { createGenerationParameters } from "../../labs/generation-parameters.js";
 import type { ConversationMessage } from "../../labs/message-sequence.js";
-import { createOpenAIGenerationAdapter } from "./openai-generation-adapter.js";
+import {
+  createOpenAIGenerationAdapter,
+  type OpenAIResponseSnapshot,
+} from "./openai-generation-adapter.js";
 
 type AdapterOptions = Parameters<typeof createOpenAIGenerationAdapter>[0];
 type CreateResponse = AdapterOptions["createResponse"];
@@ -42,28 +45,24 @@ const createRequest = (
 });
 
 const createProviderResponse = (
-  overrides: Record<string, unknown> = {},
-): OpenAIResponse =>
-  ({
-    id: "resp_123",
-    model,
-    status: "completed",
-    incomplete_details: null,
-    output_text: "Approve the change.",
-    usage: {
-      input_tokens: 120,
-      output_tokens: 30,
-      total_tokens: 150,
-    },
-    providerOnlyField: "must not escape the adapter",
-    ...overrides,
-  }) as unknown as OpenAIResponse;
+  overrides: Partial<OpenAIResponseSnapshot> = {},
+): OpenAIResponse => ({
+  id: "resp_123",
+  model,
+  status: "completed",
+  incomplete_details: null,
+  output_text: "Approve the change.",
+  error: null,
+  usage: {
+    input_tokens: 120,
+    output_tokens: 30,
+    total_tokens: 150,
+  },
+  ...overrides,
+});
 
 const createResponseFake = (response = createProviderResponse()) =>
-  vi.fn(
-    (_request: OpenAIRequest) =>
-      Promise.resolve(response) as ReturnType<CreateResponse>,
-  );
+  vi.fn((_request: OpenAIRequest) => Promise.resolve(response));
 
 describe("createOpenAIGenerationAdapter", () => {
   it("maps temperature sampling without sending top_p", async () => {
@@ -435,7 +434,7 @@ describe("createOpenAIGenerationAdapter", () => {
     },
   );
 
-  it.each(["failed", "cancelled", "queued", "in_progress"])(
+  it.each(["failed", "cancelled", "queued", "in_progress"] as const)(
     "rejects a response with status %s",
     async (status) => {
       const createResponse = createResponseFake(
