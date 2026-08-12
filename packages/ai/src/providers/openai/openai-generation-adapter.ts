@@ -1,18 +1,31 @@
 import { GenerationAdapter } from "../../generation/generation.js";
-import { OpenAI } from "openai/index.js";
 import {
   validateMessages,
   validateModel,
   validateStopSequences,
-} from "../validators/index.js";
+} from "./validators.js";
 import { mapRequest, mapResponse } from "./mappers.js";
-import { APIPromise } from "openai";
+import {
+  Response,
+  ResponseCreateParamsNonStreaming,
+} from "openai/resources/responses/responses.mjs";
+
+export type OpenAIResponseSnapshot = Pick<
+  Response,
+  | "id"
+  | "model"
+  | "status"
+  | "output_text"
+  | "usage"
+  | "incomplete_details"
+  | "error"
+>;
 
 type OpenAIGenerationAdapterOptions = Readonly<{
   model: string;
   createResponse: (
-    body: OpenAI.Responses.ResponseCreateParamsNonStreaming,
-  ) => APIPromise<OpenAI.Responses.Response>;
+    request: ResponseCreateParamsNonStreaming,
+  ) => Promise<OpenAIResponseSnapshot>;
 }>;
 
 const PROVIDER = "OpenAI";

@@ -33,9 +33,9 @@ const runFirstGeneration = async (): Promise<void> => {
 
   // 4. Mensagens no formato interno do ChangePilot
   const messages = createMessageSequence(
-    "You are ChangePilot, an AI assistant for evidence-based code reviews.",
+    "You are ChangePilot, a software-change analysis assistant.\nAnswer with one concise sentence.",
     [],
-    "Why should a review use repository evidence?",
+    "Why should a code review conclusion be grounded in repository evidence?",
   );
 
   // 5. Parâmetros no formato interno do ChangePilot

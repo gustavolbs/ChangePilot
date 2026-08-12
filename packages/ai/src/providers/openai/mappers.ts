@@ -7,7 +7,7 @@ import {
   GenerationRequest,
   GenerationResponse,
 } from "../../generation/generation.js";
-import OpenAI from "openai";
+import { OpenAIResponseSnapshot } from "./openai-generation-adapter.js";
 
 type MapRequestInput = {
   model: string;
@@ -58,9 +58,7 @@ export const mapRequest = (
 };
 
 export const mapResponse = (
-  response: OpenAI.Responses.Response & {
-    _request_id?: string | null;
-  },
+  response: OpenAIResponseSnapshot,
 ): GenerationResponse => {
   if (response.usage === null || response.usage === undefined) {
     throw new Error("OpenAI response does not contain token usage.");
