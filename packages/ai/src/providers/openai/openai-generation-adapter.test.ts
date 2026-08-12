@@ -57,6 +57,13 @@ const createProviderResponse = (
     input_tokens: 120,
     output_tokens: 30,
     total_tokens: 150,
+    input_tokens_details: {
+      cache_write_tokens: 0,
+      cached_tokens: 0,
+    },
+    output_tokens_details: {
+      reasoning_tokens: 0,
+    },
   },
   ...overrides,
 });
@@ -413,26 +420,38 @@ describe("createOpenAIGenerationAdapter", () => {
     expect(response.outputText).toBe("");
   });
 
-  it.each([
-    ["missing", null],
-    ["unknown", { reason: "unknown_reason" }],
-  ])(
-    "rejects an incomplete response with a %s reason",
-    async (_caseName, incompleteDetails) => {
-      const createResponse = createResponseFake(
-        createProviderResponse({
-          status: "incomplete",
-          incomplete_details: incompleteDetails,
-        }),
-      );
-      const adapter = createOpenAIGenerationAdapter({ model, createResponse });
+  it("rejects an incomplete response with a missing reason", async () => {
+    const createResponse = createResponseFake(
+      createProviderResponse({
+        status: "incomplete",
+        incomplete_details: null,
+      }),
+    );
+    const adapter = createOpenAIGenerationAdapter({ model, createResponse });
 
-      await expect(adapter.generate(createRequest())).rejects.toThrow(
-        /incomplete|reason/i,
-      );
-      expect(createResponse).toHaveBeenCalledTimes(1);
-    },
-  );
+    await expect(adapter.generate(createRequest())).rejects.toThrow(
+      /incomplete|reason/i,
+    );
+    expect(createResponse).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects an incomplete response with an unknown reason", async () => {
+    const unknownIncompleteDetails = {
+      reason: "unknown_reason",
+    } as unknown as NonNullable<OpenAIResponseSnapshot["incomplete_details"]>;
+    const createResponse = createResponseFake(
+      createProviderResponse({
+        status: "incomplete",
+        incomplete_details: unknownIncompleteDetails,
+      }),
+    );
+    const adapter = createOpenAIGenerationAdapter({ model, createResponse });
+
+    await expect(adapter.generate(createRequest())).rejects.toThrow(
+      /incomplete|reason/i,
+    );
+    expect(createResponse).toHaveBeenCalledTimes(1);
+  });
 
   it.each(["failed", "cancelled", "queued", "in_progress"] as const)(
     "rejects a response with status %s",
@@ -449,12 +468,9 @@ describe("createOpenAIGenerationAdapter", () => {
     },
   );
 
-  it.each([
-    ["undefined", undefined],
-    ["null", null],
-  ])("rejects a response with %s usage", async (_caseName, usage) => {
+  it("rejects a response without usage", async () => {
     const createResponse = createResponseFake(
-      createProviderResponse({ usage }),
+      createProviderResponse({ usage: undefined }),
     );
     const adapter = createOpenAIGenerationAdapter({ model, createResponse });
 
@@ -485,6 +501,13 @@ describe("createOpenAIGenerationAdapter", () => {
           input_tokens: 7,
           output_tokens: 11,
           total_tokens: 42,
+          input_tokens_details: {
+            cache_write_tokens: 0,
+            cached_tokens: 0,
+          },
+          output_tokens_details: {
+            reasoning_tokens: 0,
+          },
         },
       }),
     );

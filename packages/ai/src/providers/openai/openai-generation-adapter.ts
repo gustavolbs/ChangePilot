@@ -1,5 +1,4 @@
 import type { GenerationAdapter } from "../../generation/generation.js";
-import { validateStopSequences } from "./validators.js";
 import { mapRequest, mapResponse } from "./mappers.js";
 import type {
   Response,
@@ -7,19 +6,16 @@ import type {
 } from "openai/resources/responses/responses.mjs";
 import type { ConversationMessage } from "../../labs/message-sequence.js";
 
-export type OpenAIResponseSnapshot = Readonly<{
-  id: Response["id"];
-  model: Response["model"];
-  status?: Response["status"];
-  output_text: Response["output_text"];
-  usage?: Readonly<{
-    input_tokens: number;
-    output_tokens: number;
-    total_tokens: number;
-  }> | null;
-  incomplete_details: Readonly<{ reason?: string }> | null;
-  error: Response["error"];
-}>;
+export type OpenAIResponseSnapshot = Pick<
+  Response,
+  | "id"
+  | "model"
+  | "status"
+  | "output_text"
+  | "usage"
+  | "incomplete_details"
+  | "error"
+>;
 
 type OpenAIGenerationAdapterOptions = Readonly<{
   model: string;
@@ -74,4 +70,16 @@ const validateMessages = (messages: readonly ConversationMessage[]): void => {
       throw new RangeError("OpenAI: message and role cannot be empty");
     }
   });
+};
+
+const validateStopSequences = (stopSequences: readonly string[]) => {
+  if (!Array.isArray(stopSequences)) {
+    throw new RangeError("Stop sequences must be an array.");
+  }
+
+  for (const sequence of stopSequences) {
+    if (typeof sequence !== "string" || !sequence.trim()) {
+      throw new RangeError("Stop sequences must be non-empty strings.");
+    }
+  }
 };
