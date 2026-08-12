@@ -1,57 +1,79 @@
 import OpenAI from "openai";
 
-const runFirstGeneration = async () => {
-  const apiKey = process.env.OPENAI_API_KEY;
-  const model = process.env.OPENAI_MODEL;
+import type { GenerationRequest } from "../../generation/generation.js";
+import { createGenerationParameters } from "../../labs/generation-parameters.js";
+import { createMessageSequence } from "../../labs/message-sequence.js";
+import { createOpenAIGenerationAdapter } from "./openai-generation-adapter.js";
 
-  if (!apiKey?.trim()) {
-    throw new Error("OPENAI_API_KEY environment variable is not set.");
+const getRequiredEnvironmentVariable = (name: string): string => {
+  const value = process.env[name];
+
+  if (value === undefined || value.trim().length === 0) {
+    throw new Error(`Missing required environment variable: ${name}.`);
   }
 
-  if (!model?.trim()) {
-    throw new Error("OPENAI_MODEL environment variable is not set.");
-  }
-
-  const client = new OpenAI({ apiKey: apiKey });
-
-  const request = {
-    model,
-    instructions:
-      "You are ChangePilot, a software-change analysis assistant.\nAnswer with one concise sentence.",
-    input:
-      "Why should a code review conclusion be grounded in repository evidence?",
-    reasoning: {
-      effort: "none" as const,
-    },
-    max_output_tokens: 200,
-    store: false,
-  };
-
-  console.log("Request:", request);
-
-  const response = await client.responses.create(request);
-
-  if (response.status !== "completed") {
-    throw new Error(
-      `OpenAI response status is not completed: ${response.status}`,
-    );
-  }
-
-  if (!response.output_text.trim()) {
-    throw new Error("OpenAI response output_text is empty.");
-  }
-
-  const summary = {
-    id: response.id,
-    model: response.model,
-    status: response.status,
-    outputText: response.output_text,
-    inputTokens: response.usage?.input_tokens,
-    outputTokens: response.usage?.output_tokens,
-    totalTokens: response.usage?.total_tokens,
-  };
-
-  console.log(JSON.stringify(summary, null, 2));
+  return value;
 };
 
-runFirstGeneration();
+const runFirstGeneration = async (): Promise<void> => {
+  // 1. Configuração externa
+  const apiKey = getRequiredEnvironmentVariable("OPENAI_API_KEY");
+  const model = getRequiredEnvironmentVariable("OPENAI_MODEL");
+
+  // 2. Client específico da OpenAI
+  const client = new OpenAI({
+    apiKey,
+  });
+
+  // 3. Adapter configurado
+  const adapter = createOpenAIGenerationAdapter({
+    model,
+    createResponse: (request) => client.responses.create(request),
+  });
+
+  // 4. Mensagens no formato interno do ChangePilot
+  const messages = createMessageSequence(
+    "You are ChangePilot, an AI assistant for evidence-based code reviews.",
+    [],
+    "Why should a review use repository evidence?",
+  );
+
+  // 5. Parâmetros no formato interno do ChangePilot
+  const parameters = createGenerationParameters({
+    sampling: {
+      strategy: "temperature",
+      temperature: 0,
+    },
+    maxOutputTokens: 200,
+    stopSequences: [],
+  });
+
+  // 6. Request provider-neutral
+  const request: GenerationRequest = {
+    messages,
+    parameters,
+  };
+
+  // 7. Geração
+  const response = await adapter.generate(request);
+
+  // 8. Saída segura
+  console.log(
+    JSON.stringify(
+      {
+        request,
+        response,
+      },
+      null,
+      2,
+    ),
+  );
+};
+
+runFirstGeneration().catch((error: unknown) => {
+  const message =
+    error instanceof Error ? error.message : "Unknown generation error.";
+
+  console.error(`Generation failed: ${message}`);
+  process.exitCode = 1;
+});

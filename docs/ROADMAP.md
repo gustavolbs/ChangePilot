@@ -91,13 +91,13 @@
 
 ## 01.9 — Modelagem de Generation
 
-- [ ] Criar contrato interno de geração
-- [ ] Modelar GenerationRequest
-- [ ] Modelar GenerationResponse
-- [ ] Modelar token usage
-- [ ] Modelar finish reason
-- [ ] Evitar abstração prematura
-- [ ] Criar primeiro adapter de provider
+- [x] Criar contrato interno de geração
+- [x] Modelar GenerationRequest
+- [x] Modelar GenerationResponse
+- [x] Modelar token usage
+- [x] Modelar finish reason
+- [x] Evitar abstração prematura
+- [x] Criar primeiro adapter de provider
 
 ## 01.10 — Structured Outputs
 

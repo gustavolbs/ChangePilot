@@ -17,10 +17,15 @@ Foundation / Bootstrap
 - official OpenAI SDK
 - manual generation with the Responses API
 - basic request, response, and usage inspection
+- provider-neutral generation contract
+- GenerationRequest and GenerationResponse
+- basic finish reasons and token usage
+- first OpenAI generation adapter
+- offline mapping tests
 
 ## What does not exist yet
 
-- provider-neutral generation contract and adapter (planned for Lesson 01.9)
+- validated multi-provider abstraction and second provider (planned for Lesson 01.17)
 - RAG
 - embeddings
 - MCP
