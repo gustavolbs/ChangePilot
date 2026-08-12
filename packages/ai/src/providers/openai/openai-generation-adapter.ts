@@ -49,14 +49,7 @@ export function createOpenAIGenerationAdapter(
 
   return {
     async generate(request) {
-      validateMessages(request.messages);
-      validateStopSequences(request.parameters.stopSequences);
-
-      if (request.parameters.stopSequences.length > 0) {
-        throw new RangeError(
-          "OpenAI: stopSequences are not supported by this adapter.",
-        );
-      }
+      validateGenerationRequest(request);
 
       const openAIRequest = mapRequest({
         model: options.model,
@@ -71,6 +64,7 @@ export function createOpenAIGenerationAdapter(
     async generateStructured<Output>(
       request: StructuredGenerationRequest<Output>,
     ): Promise<StructuredGenerationResponse<Output>> {
+      validateGenerationRequest(request);
       validateSchemaName(request.output.schemaName);
 
       const openAIRequest = zodMapRequest({
@@ -114,6 +108,17 @@ export function createOpenAIGenerationAdapter(
     },
   };
 }
+
+const validateGenerationRequest = (request: GenerationRequest): void => {
+  validateMessages(request.messages);
+  validateStopSequences(request.parameters.stopSequences);
+
+  if (request.parameters.stopSequences.length > 0) {
+    throw new RangeError(
+      "OpenAI: stopSequences are not supported by this adapter.",
+    );
+  }
+};
 
 const validateModel = (model: string): void => {
   if (!model?.trim()) {
