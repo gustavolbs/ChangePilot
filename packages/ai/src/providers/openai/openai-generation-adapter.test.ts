@@ -4,8 +4,13 @@ import type {
   GenerationRequest,
   GenerationResponse,
 } from "../../generation/generation.js";
+import type { StructuredGenerationRequest } from "../../generation/structured-generation.js";
 import { createGenerationParameters } from "../../labs/generation-parameters.js";
 import type { ConversationMessage } from "../../labs/message-sequence.js";
+import {
+  type ChangeReview,
+  ChangeReviewSchema,
+} from "../../reviews/change-review.js";
 import {
   createOpenAIGenerationAdapter,
   type OpenAIResponseSnapshot,
@@ -41,6 +46,17 @@ const createRequest = (
     maxOutputTokens: 1_200,
     stopSequences: [],
   }),
+  ...overrides,
+});
+
+const createStructuredRequest = (
+  overrides: Partial<StructuredGenerationRequest<ChangeReview>> = {},
+): StructuredGenerationRequest<ChangeReview> => ({
+  ...createRequest(),
+  output: {
+    schemaName: "change_review",
+    schema: ChangeReviewSchema,
+  },
   ...overrides,
 });
 
@@ -363,6 +379,71 @@ describe("createOpenAIGenerationAdapter", () => {
       ),
     ).rejects.toThrow(/stop\s*sequences?/i);
     expect(createResponse).not.toHaveBeenCalled();
+  });
+
+  describe("generateStructured request validation", () => {
+    it("rejects a sequence containing only an instruction before calling createResponse", async () => {
+      const createResponse = createResponseFake();
+      const adapter = createOpenAIGenerationAdapter({ model, createResponse });
+
+      await expect(
+        adapter.generateStructured(
+          createStructuredRequest({
+            messages: [
+              {
+                role: "instruction",
+                content: "An instruction needs a subsequent message.",
+              },
+            ],
+          }),
+        ),
+      ).rejects.toThrow(/message|instruction/i);
+      expect(createResponse).not.toHaveBeenCalled();
+    });
+
+    it("rejects an empty message before calling createResponse", async () => {
+      const createResponse = createResponseFake();
+      const adapter = createOpenAIGenerationAdapter({ model, createResponse });
+
+      await expect(
+        adapter.generateStructured(
+          createStructuredRequest({
+            messages: [
+              {
+                role: "instruction",
+                content: "Valid instruction.",
+              },
+              {
+                role: "user",
+                content: " \n\t ",
+              },
+            ],
+          }),
+        ),
+      ).rejects.toThrow(/content|message/i);
+      expect(createResponse).not.toHaveBeenCalled();
+    });
+
+    it("rejects non-empty stopSequences before calling createResponse", async () => {
+      const createResponse = createResponseFake();
+      const adapter = createOpenAIGenerationAdapter({ model, createResponse });
+
+      await expect(
+        adapter.generateStructured(
+          createStructuredRequest({
+            parameters: createGenerationParameters({
+              sampling: {
+                strategy: "temperature",
+                temperature: 0.2,
+              },
+              maxOutputTokens: 1_200,
+              stopSequences: ["</review>"],
+            }),
+          }),
+        ),
+      ).rejects.toThrow(/stop\s*sequences?/i);
+      expect(createResponse).not.toHaveBeenCalled();
+    });
   });
 
   it("maps a completed response without exposing the raw provider response", async () => {
