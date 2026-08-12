@@ -101,15 +101,15 @@
 
 ## 01.10 — Structured Outputs
 
-- [ ] Problemas de consumir texto livre
-- [ ] JSON output
-- [ ] JSON Schema
-- [ ] Schema validation
-- [ ] Runtime validation
-- [ ] Zod ou alternativa equivalente
-- [ ] Invalid structured output
-- [ ] Retry de parsing
-- [ ] Aplicar structured output no ChangePilot
+- [x] Problemas de consumir texto livre
+- [x] JSON output
+- [x] JSON Schema
+- [x] Schema validation
+- [x] Runtime validation
+- [x] Zod ou alternativa equivalente
+- [x] Invalid structured output
+- [x] Retry de parsing
+- [x] Aplicar structured output no ChangePilot
 
 ## 01.11 — Tool / Function Calling
 

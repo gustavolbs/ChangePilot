@@ -51,6 +51,7 @@ const createProviderResponse = (
   model,
   status: "completed",
   incomplete_details: null,
+  output: [],
   output_text: "Approve the change.",
   error: null,
   usage: {
@@ -96,6 +97,7 @@ describe("createOpenAIGenerationAdapter", () => {
       store: false,
     });
     expect(createResponse.mock.calls[0]?.[0]).not.toHaveProperty("top_p");
+    expect(createResponse.mock.calls[0]?.[0]).not.toHaveProperty("text.format");
   });
 
   it("maps top-p sampling without sending temperature", async () => {
