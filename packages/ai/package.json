@@ -9,6 +9,7 @@
   "scripts": {
     "check-types": "tsc --noEmit",
     "generate:openai": "node --env-file=../../.env --import tsx src/providers/openai/run-first-generation.ts",
+    "generate:structured:openai": "node --env-file=../../.env --import tsx src/providers/openai/run-first-structured-generation.ts",
     "test": "vitest run"
   },
   "devDependencies": {
@@ -19,6 +20,7 @@
     "vitest": "^4.1.10"
   },
   "dependencies": {
-    "openai": "^7.4.0"
+    "openai": "^7.4.0",
+    "zod": "^4"
   }
 }
