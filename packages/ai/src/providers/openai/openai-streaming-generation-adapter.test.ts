@@ -193,7 +193,11 @@ describe("createOpenAIStreamingGenerationAdapter", () => {
         },
       },
     });
-    const createStream = createStreamFake([createCompleted(providerResponse)]);
+    Reflect.deleteProperty(providerResponse, "output_text");
+    const createStream = createStreamFake([
+      createTextDelta("  Exact final output.\n", 1),
+      createCompleted(providerResponse, 2),
+    ]);
     const adapter = createOpenAIStreamingGenerationAdapter({
       model,
       createStream,
@@ -201,7 +205,7 @@ describe("createOpenAIStreamingGenerationAdapter", () => {
 
     const events = await collectEvents(adapter.stream(request));
 
-    expect(events).toEqual([
+    expect(events.filter((event) => event.type === "finished")).toEqual([
       {
         type: "finished",
         response: {

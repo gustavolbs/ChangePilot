@@ -32,8 +32,10 @@ export function createOpenAIStreamingGenerationAdapter(
         stream: true,
       });
 
+      let outputText = "";
       for await (const event of openAIStream) {
         if (event.type === "response.output_text.delta") {
+          outputText += event.delta;
           yield {
             type: "text-delta",
             delta: event.delta,
@@ -43,7 +45,10 @@ export function createOpenAIStreamingGenerationAdapter(
         if (event.type === "response.completed") {
           yield {
             type: "finished",
-            response: mapResponse(event.response),
+            response: mapResponse({
+              ...event.response,
+              output_text: outputText,
+            }),
           };
 
           return;
