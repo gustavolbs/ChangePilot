@@ -2,13 +2,11 @@ import OpenAI from "openai";
 
 import { createGenerationParameters } from "../../labs/generation-parameters.js";
 import { createMessageSequence } from "../../labs/message-sequence.js";
-import { createOpenAIGenerationAdapter } from "./openai-generation-adapter.js";
-import {
-  ChangeReview,
-  ChangeReviewSchema,
-} from "../../reviews/change-review.js";
-import { StructuredGenerationRequest } from "../../generation/structured-generation.js";
 import { createOpenAIStreamingGenerationAdapter } from "./openai-streaming-generation-adapter.js";
+import type {
+  GenerationRequest,
+  GenerationResponse,
+} from "../../generation/generation.js";
 
 const getRequiredEnvironmentVariable = (name: string): string => {
   const value = process.env[name];
@@ -65,36 +63,46 @@ const runFirstStreamedGeneration = async (): Promise<void> => {
   const request = {
     messages,
     parameters,
-    output: {
-      schemaName: "change_review",
-      schema: ChangeReviewSchema,
-    },
-  } satisfies StructuredGenerationRequest<ChangeReview>;
+  } satisfies GenerationRequest;
 
-  let outputText = "";
+  let textDeltaEvents = "";
+  let counter = 0;
+  const response: GenerationResponse[] | undefined = [];
   // 7. Geração
   for await (const event of adapter.stream(request)) {
     // TENHO CERTEZA Q ISSO ESTÁ ERRADO
     if (event.type === "text-delta") {
       process.stdout.write(event.delta);
-      outputText += event.delta;
+      counter += 1;
+      textDeltaEvents += event.delta;
     }
 
     if (event.type === "finished") {
+      response.push(event.response);
     }
   }
 
+  if (
+    !response[0]?.finishReason ||
+    !response[0]?.usage ||
+    !response[0]?.outputText
+  ) {
+    throw new Error("OpenAI: failed to generate a response.");
+  }
+
   // 8. Saída segura
+  console.log("----------------------------------------");
   console.log(
     JSON.stringify(
       {
         request: {
           messages,
           parameters,
-          schemaName: request.output.schemaName,
         },
-        // EU LOGO OQ AQUI?
-        // response,
+        response: response[0],
+        textDeltaEvents,
+        concatenatedDeltasMatchFinalOutput:
+          textDeltaEvents === response[0].outputText,
       },
       null,
       2,

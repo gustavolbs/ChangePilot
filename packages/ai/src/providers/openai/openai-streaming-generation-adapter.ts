@@ -1,6 +1,17 @@
-import { OpenAIStreamingGenerationAdapterOptions, StreamingGenerationAdapter } from "../../generation/streaming-generation.js";
-import { mapRequest } from "./mappers.js";
+import type {
+  ResponseCreateParamsStreaming,
+  ResponseStreamEvent,
+} from "openai/resources/responses/responses.mjs";
+import type { StreamingGenerationAdapter } from "../../generation/streaming-generation.js";
+import { mapRequest, mapResponse } from "./mappers.js";
 import { validateGenerationRequest, validateModel } from "./validators.js";
+
+export type OpenAIStreamingGenerationAdapterOptions = Readonly<{
+  model: string;
+  createStream: (
+    request: ResponseCreateParamsStreaming,
+  ) => Promise<AsyncIterable<ResponseStreamEvent>>;
+}>;
 
 export function createOpenAIStreamingGenerationAdapter(
   options: OpenAIStreamingGenerationAdapterOptions,
@@ -8,7 +19,7 @@ export function createOpenAIStreamingGenerationAdapter(
   validateModel(options.model);
 
   return {
-    async stream(request) {
+    async *stream(request) {
       validateGenerationRequest(request);
 
       const openAIRequest = mapRequest({
@@ -16,9 +27,11 @@ export function createOpenAIStreamingGenerationAdapter(
         request,
       });
 
-      const openAIStream = await options.createStream({...openAIRequest, stream: true});
+      const openAIStream = await options.createStream({
+        ...openAIRequest,
+        stream: true,
+      });
 
-      // N ENTENDI COMO FAZER ISSO AQUI
       for await (const event of openAIStream) {
         if (event.type === "response.output_text.delta") {
           yield {
@@ -27,7 +40,10 @@ export function createOpenAIStreamingGenerationAdapter(
           };
         }
 
-        if (event.type === "response.completed") {
+        if (
+          event.type === "response.completed" ||
+          event.type === "response.incomplete"
+        ) {
           yield {
             type: "finished",
             response: mapResponse(event.response),
@@ -35,8 +51,20 @@ export function createOpenAIStreamingGenerationAdapter(
 
           return;
         }
+
+        if (event.type === "response.failed") {
+          throw new Error(
+            `OpenAI: failed to continue the streaming: ${event.response.error}`,
+          );
+        }
+        if (event.type === "error") {
+          throw new Error(
+            `OpenAI: an error occurred while streaming: ${event.message}`,
+          );
+        }
       }
-      return mapResponse(openAIStream);
+
+      throw new Error("OpenAI: stream ended without a terminal event.");
     },
   };
 }
