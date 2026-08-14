@@ -1,15 +1,10 @@
-import type {
+export type { GenerationRequest } from "./generation/generation.js";
+export type {
   GenerationStreamEvent,
-  StreamingGenerationAdapter,
   GenerationStreamOptions,
+  StreamingGenerationAdapter,
 } from "./generation/streaming-generation.js";
-import type { GenerationRequest } from "./generation/generation.js";
-import { createOpenAIStreamingGenerationAdapter } from "./providers/openai/openai-streaming-generation-adapter.js";
 
-export {
-  GenerationStreamEvent,
-  StreamingGenerationAdapter,
-  GenerationRequest,
-  GenerationStreamOptions,
-  createOpenAIStreamingGenerationAdapter,
-};
+export { createGenerationParameters } from "./labs/generation-parameters.js";
+export { createMessageSequence } from "./labs/message-sequence.js";
+export { createOpenAIStreamingGenerationAdapter } from "./providers/openai/openai-streaming-generation-adapter.js";

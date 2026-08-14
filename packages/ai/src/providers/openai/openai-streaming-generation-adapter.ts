@@ -20,7 +20,7 @@ export function createOpenAIStreamingGenerationAdapter(
   validateModel(options.model);
 
   return {
-    async *stream(request) {
+    async *stream(request, streamOptions) {
       validateGenerationRequest(request);
 
       const openAIRequest = mapRequest({
@@ -28,10 +28,13 @@ export function createOpenAIStreamingGenerationAdapter(
         request,
       });
 
-      const openAIStream = await options.createStream({
-        ...openAIRequest,
-        stream: true,
-      });
+      const openAIStream = await options.createStream(
+        {
+          ...openAIRequest,
+          stream: true,
+        },
+        streamOptions?.signal,
+      );
 
       let outputText = "";
       for await (const event of openAIStream) {

@@ -20,6 +20,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@changepilot/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@hono/node-server':
         specifier: ^2.1.0
         version: 2.1.0(hono@4.13.1)
@@ -33,9 +36,6 @@ importers:
         specifier: ^7.4.0
         version: 7.4.0(zod@4.4.3)
     devDependencies:
-      '@changepilot/ai':
-        specifier: workspace:*
-        version: link:../../packages/ai
       '@repo/typescript-config':
         specifier: workspace:*
         version: link:../../packages/typescript-config

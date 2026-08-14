@@ -1,63 +1,92 @@
-import { app } from "./index.js";
-import { cors } from "hono/cors";
-import { createOpenAIStreamingGenerationAdapter } from "@changepilot/ai";
+import {
+  createGenerationParameters,
+  createMessageSequence,
+  type GenerationRequest,
+  type StreamingGenerationAdapter,
+} from "@changepilot/ai";
+import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
-import OpenAI from "openai";
 
-const openAIClient = new OpenAI();
+export function createReviewStreamRoutes(adapter: StreamingGenerationAdapter) {
+  const routes = new Hono();
 
-const adapter = createOpenAIStreamingGenerationAdapter({
-  model: process.env.OPENAI_MODEL!,
-  createStream: (request, signal) =>
-    openAIClient.responses.create(request, { signal }),
-});
+  routes.post("/stream", async (c) => {
+    const body: unknown = await c.req.json().catch(() => undefined);
 
-app.use(
-  "/reviews/*",
-  cors({
-    origin: process.env.WEB_ORIGIN ?? "http://localhost:3000",
-  }),
-);
+    if (
+      typeof body !== "object" ||
+      body === null ||
+      !("changeDescription" in body) ||
+      typeof body.changeDescription !== "string" ||
+      !body.changeDescription.trim()
+    ) {
+      return c.json({ error: "changeDescription is required." }, 400);
+    }
 
-app.post("/reviews/stream", async (c) => {
-  const body = await c.req.json<{
-    changeDescription?: string;
-  }>();
+    return streamSSE(c, async (stream) => {
+      const providerController = new AbortController();
 
-  if (!body.changeDescription?.trim()) {
-    return c.json({ error: "changeDescription is required." }, 400);
-  }
+      stream.onAbort(() => {
+        providerController.abort();
+      });
 
-  return streamSSE(c, async (stream) => {
-    const providerController = new AbortController();
+      if (
+        typeof body !== "object" ||
+        body === null ||
+        !("changeDescription" in body) ||
+        typeof body.changeDescription !== "string" ||
+        !body.changeDescription.trim()
+      ) {
+        throw c.json({ error: "changeDescription is required." }, 400);
+      }
 
-    stream.onAbort(() => {
-      providerController.abort();
-    });
+      const request = {
+        messages: createMessageSequence(
+          [
+            "You are ChangePilot.",
+            "Review only the supplied change description.",
+            "Do not invent facts that are not present.",
+          ].join(" "),
+          [],
+          `Review this change:\n${body.changeDescription?.trim()}`,
+        ),
+        parameters: createGenerationParameters({
+          sampling: {
+            strategy: "temperature",
+            temperature: 0,
+          },
+          maxOutputTokens: 500,
+          stopSequences: [],
+        }),
+      } satisfies GenerationRequest;
 
-    try {
-      // DE ONDE VEM ESSA REQUEST?
-      for await (const event of adapter.stream(request, {
-        signal: providerController.signal,
-      })) {
+      try {
+        for await (const event of adapter.stream(request, {
+          signal: providerController.signal,
+        })) {
+          await stream.writeSSE({
+            event: event.type,
+            data: JSON.stringify(event),
+          });
+        }
+      } catch (error) {
+        if (providerController.signal.aborted) {
+          return;
+        }
+
         await stream.writeSSE({
-          event: event.type,
-          data: JSON.stringify(event),
+          event: "error",
+          data: JSON.stringify({
+            type: "error",
+            message:
+              error instanceof Error
+                ? error.message
+                : "Unknown streaming error.",
+          }),
         });
       }
-    } catch (error) {
-      if (providerController.signal.aborted) {
-        return;
-      }
-
-      await stream.writeSSE({
-        event: "error",
-        data: JSON.stringify({
-          type: "error",
-          message:
-            error instanceof Error ? error.message : "Unknown streaming error.",
-        }),
-      });
-    }
+    });
   });
-});
+
+  return routes;
+}
