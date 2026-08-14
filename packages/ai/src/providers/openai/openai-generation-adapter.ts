@@ -2,7 +2,7 @@ import type {
   GenerationAdapter,
   GenerationRequest,
 } from "../../generation/generation.js";
-import { mapRequest, mapResponse } from "./mappers.js";
+import { mapRequest, mapResponse, mapTools } from "./mappers.js";
 import type {
   Response,
   ResponseCreateParamsNonStreaming,
@@ -14,6 +14,13 @@ import {
   StructuredGenerationResponse,
 } from "../../generation/structured-generation.js";
 import { zodTextFormat } from "openai/helpers/zod";
+import {
+  ToolCallingAdapter,
+  ToolDefinition,
+  ToolGenerationRequest,
+  ToolGenerationResponse,
+} from "../../generation/tool-calling.js";
+import { GetChangeEvidenceInput } from "../../reviews/get-change-evidence.js";
 
 export type OpenAIResponseSnapshot = Pick<
   Response,
@@ -35,7 +42,8 @@ type OpenAIGenerationAdapterOptions = Readonly<{
 }>;
 
 export type OpenAIGenerationAdapter = GenerationAdapter &
-  StructuredGenerationAdapter;
+  StructuredGenerationAdapter &
+  ToolCallingAdapter;
 
 type ZodMapInput<Output> = Readonly<{
   model: string;
@@ -105,6 +113,39 @@ export function createOpenAIGenerationAdapter(
         finishReason: "completed",
         output: validation.data,
       };
+    },
+
+    async generateWithTools<Input>(
+      request: ToolGenerationRequest<Input>,
+    ): Promise<ToolGenerationResponse> {
+      validateGenerationRequest(request);
+      validateTools<GetChangeEvidenceInput>(request.tools);
+      validateMaxToolRounds(request.maxToolRounds);
+
+      const mappedTools = mapTools(request.tools);
+
+      const mappedPartialRequest = mapRequest({
+        model: options.model,
+        request,
+      });
+
+      const openAIRequest: ResponseCreateParamsNonStreaming = {
+        ...mappedPartialRequest,
+        ...mappedTools,
+      };
+
+      const openAIResponse = await options.createResponse(openAIRequest);
+
+      if (containsRefusal(openAIResponse)) {
+        throw new Error("OpenAI: Model refused the structured response.");
+      }
+
+      // NEED TO RUN THE LOOP AND FIND FUNCTION CALLS ON MESSAGES UNTIL NO MORE TOOLS
+      const baseResponse = mapResponse(openAIResponse);
+
+      if (baseResponse.finishReason !== "completed") {
+        throw new Error("OpenAI: Response not completed yet.");
+      }
     },
   };
 }
@@ -186,4 +227,37 @@ const zodMapRequest = <Output>({
       format: zodTextFormat(request.output.schema, request.output.schemaName),
     },
   };
+};
+
+const validateTools = <Input>(tools: ToolDefinition<Input>[]) => {
+  if (!Array.isArray(tools)) {
+    throw new Error("OpenAI: `tools` must be a valid array.");
+  }
+  tools.forEach((tool) => {
+    validateTool(tool);
+  });
+};
+
+const validateMaxToolRounds = (maxToolsNumbers: number) => {
+  if (
+    !maxToolsNumbers ||
+    maxToolsNumbers < 0 ||
+    !Number.isInteger(maxToolsNumbers) ||
+    !Number.isFinite(maxToolsNumbers)
+  ) {
+    throw new RangeError("OpenAI: maxToolsNumber must be a positive integer.");
+  }
+};
+
+export const validateTool = <Input>(tool: ToolDefinition<Input>) => {
+  if (
+    !tool.name.trim() ||
+    !tool.description.trim() ||
+    !tool.inputSchema ||
+    !tool.execute
+  ) {
+    throw new RangeError(
+      "OpenAI: all the tools fields must be rightly filled.",
+    );
+  }
 };

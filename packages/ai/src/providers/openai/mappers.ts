@@ -1,10 +1,19 @@
-import type { ResponseCreateParamsNonStreaming } from "openai/resources/responses/responses";
+import type {
+  Response,
+  ResponseCreateParamsNonStreaming,
+  Tool,
+} from "openai/resources/responses/responses";
 import type {
   FinishReason,
   GenerationRequest,
   GenerationResponse,
 } from "../../generation/generation.js";
-import type { OpenAIResponseSnapshot } from "./openai-generation-adapter.js";
+import {
+  validateTool,
+  type OpenAIResponseSnapshot,
+} from "./openai-generation-adapter.js";
+import { ToolDefinition } from "../../generation/tool-calling.js";
+import { zodResponsesFunction } from "openai/helpers/zod";
 
 type MapRequestInput = {
   model: string;
@@ -113,4 +122,20 @@ export const mapFinishReason = (
   throw new Error(
     `OpenAI response status cannot produce a GenerationResponse: ${response.status}.`,
   );
+};
+
+const mapTool = <Input>(tool: ToolDefinition<Input>): Tool => {
+  validateTool(tool);
+  const copy = { ...tool };
+
+  return zodResponsesFunction({
+    name: copy.name,
+    parameters: copy.inputSchema,
+    description: copy.description,
+    function: copy.execute,
+  });
+};
+
+export const mapTools = <Input>(tools: ToolDefinition<Input>[]): Tool[] => {
+  return tools.map((tool) => mapTool(tool));
 };

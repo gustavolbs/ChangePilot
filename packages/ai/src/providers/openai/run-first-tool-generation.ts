@@ -3,11 +3,12 @@ import OpenAI from "openai";
 import { createGenerationParameters } from "../../labs/generation-parameters.js";
 import { createMessageSequence } from "../../labs/message-sequence.js";
 import { createOpenAIGenerationAdapter } from "./openai-generation-adapter.js";
+import { ToolGenerationRequest } from "../../generation/tool-calling.js";
 import {
-  ChangeReview,
-  ChangeReviewSchema,
-} from "../../reviews/change-review.js";
-import { StructuredGenerationRequest } from "../../generation/structured-generation.js";
+  getChangeEvidence,
+  GetChangeEvidenceInput,
+  GetChangeEvidenceInputSchema,
+} from "../../reviews/get-change-evidence.js";
 
 const getRequiredEnvironmentVariable = (name: string): string => {
   const value = process.env[name];
@@ -19,7 +20,7 @@ const getRequiredEnvironmentVariable = (name: string): string => {
   return value;
 };
 
-const runFirstStructuredGeneration = async (): Promise<void> => {
+const runFirstToolGeneration = async (): Promise<void> => {
   // 1. Configuração externa
   const apiKey = getRequiredEnvironmentVariable("OPENAI_API_KEY");
   const model = getRequiredEnvironmentVariable("OPENAI_MODEL");
@@ -64,24 +65,26 @@ const runFirstStructuredGeneration = async (): Promise<void> => {
   const request = {
     messages,
     parameters,
-    output: {
-      schemaName: "change_review",
-      schema: ChangeReviewSchema,
-    },
-  } satisfies StructuredGenerationRequest<ChangeReview>;
+    maxToolRounds: 5,
+    tools: [
+      {
+        name: "get_change_evidence",
+        description: "Returns evidence about a changed repository file.",
+        inputSchema: GetChangeEvidenceInputSchema,
+        // IS THIS RIGHT?
+        execute: getChangeEvidence.execute,
+      },
+    ],
+  } satisfies ToolGenerationRequest<GetChangeEvidenceInput>;
 
   // 7. Geração
-  const response = await adapter.generateStructured(request);
+  const response = await adapter.generateWithTools(request);
 
   // 8. Saída segura
   console.log(
     JSON.stringify(
       {
-        request: {
-          messages,
-          parameters,
-          schemaName: request.output.schemaName,
-        },
+        request,
         response,
       },
       null,
@@ -90,7 +93,7 @@ const runFirstStructuredGeneration = async (): Promise<void> => {
   );
 };
 
-runFirstStructuredGeneration().catch((error: unknown) => {
+runFirstToolGeneration().catch((error: unknown) => {
   const message =
     error instanceof Error ? error.message : "Unknown generation error.";
 
