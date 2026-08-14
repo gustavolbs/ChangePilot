@@ -8,10 +8,7 @@ import type {
   GenerationRequest,
   GenerationResponse,
 } from "../../generation/generation.js";
-import {
-  validateTool,
-  type OpenAIResponseSnapshot,
-} from "./openai-generation-adapter.js";
+import { type OpenAIResponseSnapshot } from "./openai-generation-adapter.js";
 import { ToolDefinition } from "../../generation/tool-calling.js";
 import { zodResponsesFunction } from "openai/helpers/zod";
 
@@ -125,17 +122,17 @@ export const mapFinishReason = (
 };
 
 const mapTool = <Input>(tool: ToolDefinition<Input>): Tool => {
-  validateTool(tool);
   const copy = { ...tool };
 
   return zodResponsesFunction({
     name: copy.name,
     parameters: copy.inputSchema,
     description: copy.description,
-    function: copy.execute,
   });
 };
 
-export const mapTools = <Input>(tools: ToolDefinition<Input>[]): Tool[] => {
+export const mapTools = <Input>(
+  tools: readonly ToolDefinition<Input>[],
+): Tool[] => {
   return tools.map((tool) => mapTool(tool));
 };

@@ -6,6 +6,7 @@ import { mapRequest, mapResponse, mapTools } from "./mappers.js";
 import type {
   Response,
   ResponseCreateParamsNonStreaming,
+  ResponseFunctionToolCall,
 } from "openai/resources/responses/responses.mjs";
 import type { ConversationMessage } from "../../labs/message-sequence.js";
 import {
@@ -20,7 +21,6 @@ import {
   ToolGenerationRequest,
   ToolGenerationResponse,
 } from "../../generation/tool-calling.js";
-import { GetChangeEvidenceInput } from "../../reviews/get-change-evidence.js";
 
 export type OpenAIResponseSnapshot = Pick<
   Response,
@@ -115,12 +115,13 @@ export function createOpenAIGenerationAdapter(
       };
     },
 
-    async generateWithTools<Input>(
-      request: ToolGenerationRequest<Input>,
+    async generateWithTools(
+      request: ToolGenerationRequest,
     ): Promise<ToolGenerationResponse> {
       validateGenerationRequest(request);
-      validateTools<GetChangeEvidenceInput>(request.tools);
+      validateTools(request.tools);
       validateMaxToolRounds(request.maxToolRounds);
+      const input = [];
 
       const mappedTools = mapTools(request.tools);
 
@@ -131,21 +132,37 @@ export function createOpenAIGenerationAdapter(
 
       const openAIRequest: ResponseCreateParamsNonStreaming = {
         ...mappedPartialRequest,
-        ...mappedTools,
+        tools: mappedTools,
+        parallel_tool_calls: false,
       };
 
-      const openAIResponse = await options.createResponse(openAIRequest);
+      while (true) {
+        const openAIResponse = await options.createResponse(openAIRequest);
 
-      if (containsRefusal(openAIResponse)) {
-        throw new Error("OpenAI: Model refused the structured response.");
+        if (containsRefusal(openAIResponse)) {
+          throw new Error("OpenAI: Model refused the structured response.");
+        }
+        const toolCalls = findToolCalls(openAIResponse);
+
+        if (toolCalls.length === 0) {
+          // HOW DO I DEFINE THIS
+          return finalResponse;
+        }
+
+        // DO I PASS THE LIMIT AND THE ROUNDS RUNNED HERE?
+        const outputs = await executeToolCalls(toolCalls);
+
+        input.push(...openAIResponse.output);
+        // HOW DO I DEFINE THIS
+        input.push(...outputs);
       }
 
-      // NEED TO RUN THE LOOP AND FIND FUNCTION CALLS ON MESSAGES UNTIL NO MORE TOOLS
-      const baseResponse = mapResponse(openAIResponse);
+      // // NEED TO RUN THE LOOP AND FIND FUNCTION CALLS ON MESSAGES UNTIL NO MORE TOOLS
+      // const baseResponse = mapResponse(openAIResponse);
 
-      if (baseResponse.finishReason !== "completed") {
-        throw new Error("OpenAI: Response not completed yet.");
-      }
+      // if (baseResponse.finishReason !== "completed") {
+      //   throw new Error("OpenAI: Response not completed yet.");
+      // }
     },
   };
 }
@@ -229,7 +246,7 @@ const zodMapRequest = <Output>({
   };
 };
 
-const validateTools = <Input>(tools: ToolDefinition<Input>[]) => {
+const validateTools = (tools: ToolDefinition[]) => {
   if (!Array.isArray(tools)) {
     throw new Error("OpenAI: `tools` must be a valid array.");
   }
@@ -260,4 +277,14 @@ export const validateTool = <Input>(tool: ToolDefinition<Input>) => {
       "OpenAI: all the tools fields must be rightly filled.",
     );
   }
+};
+
+const findToolCalls = (response: OpenAIResponseSnapshot) => {
+  return response.output.filter((e) => e.type === "function_call");
+};
+
+const executeToolCalls = async (tools: ResponseFunctionToolCall[]) => {
+  tools.forEach((tool) => {
+    const args = JSON.parse(tool.arguments);
+  });
 };

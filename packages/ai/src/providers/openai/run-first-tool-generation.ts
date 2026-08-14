@@ -4,11 +4,7 @@ import { createGenerationParameters } from "../../labs/generation-parameters.js"
 import { createMessageSequence } from "../../labs/message-sequence.js";
 import { createOpenAIGenerationAdapter } from "./openai-generation-adapter.js";
 import { ToolGenerationRequest } from "../../generation/tool-calling.js";
-import {
-  getChangeEvidence,
-  GetChangeEvidenceInput,
-  GetChangeEvidenceInputSchema,
-} from "../../reviews/get-change-evidence.js";
+import { getChangeEvidence } from "../../reviews/get-change-evidence.js";
 
 const getRequiredEnvironmentVariable = (name: string): string => {
   const value = process.env[name];
@@ -44,11 +40,7 @@ const runFirstToolGeneration = async (): Promise<void> => {
       "Do not invent facts that are not present.",
     ].join(" "),
     [],
-    [
-      "Review this change:",
-      "- src/auth/session.ts changes session expiration from 24 hours to 30 days.",
-      "- No authentication tests were changed.",
-    ].join("\n"),
+    ["Review this change:", "- src/auth/session.ts"].join("\n"),
   );
 
   // 5. Parâmetros no formato interno do ChangePilot
@@ -66,16 +58,8 @@ const runFirstToolGeneration = async (): Promise<void> => {
     messages,
     parameters,
     maxToolRounds: 5,
-    tools: [
-      {
-        name: "get_change_evidence",
-        description: "Returns evidence about a changed repository file.",
-        inputSchema: GetChangeEvidenceInputSchema,
-        // IS THIS RIGHT?
-        execute: getChangeEvidence.execute,
-      },
-    ],
-  } satisfies ToolGenerationRequest<GetChangeEvidenceInput>;
+    tools: [getChangeEvidence],
+  } satisfies ToolGenerationRequest;
 
   // 7. Geração
   const response = await adapter.generateWithTools(request);

@@ -1,7 +1,7 @@
 import { ZodType } from "zod";
 import { GenerationRequest, GenerationResponse } from "./generation.js";
 
-export type ToolDefinition<Input> = Readonly<{
+export type ToolDefinition<Input = unknown> = Readonly<{
   name: string;
   description: string;
   inputSchema: ZodType<Input>;
@@ -25,9 +25,9 @@ export type ToolExecution = Readonly<{
   result: ToolResultMessage;
 }>;
 
-export type ToolGenerationRequest<Input> = GenerationRequest &
+export type ToolGenerationRequest = GenerationRequest &
   Readonly<{
-    tools: readonly ToolDefinition<Input>[];
+    tools: readonly ToolDefinition[];
     maxToolRounds: number;
   }>;
 
@@ -37,8 +37,8 @@ export type ToolGenerationResponse = GenerationResponse &
   }>;
 
 export interface ToolCallingAdapter {
-  generateWithTools<Input>(
-    request: ToolGenerationRequest<Input>,
+  generateWithTools(
+    request: ToolGenerationRequest,
   ): Promise<ToolGenerationResponse>;
 }
 
