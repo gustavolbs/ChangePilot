@@ -11,10 +11,8 @@ import {
   type ChangeReview,
   ChangeReviewSchema,
 } from "../../reviews/change-review.js";
-import {
-  createOpenAIGenerationAdapter,
-  type OpenAIResponseSnapshot,
-} from "./openai-generation-adapter.js";
+import { createOpenAIGenerationAdapter } from "./openai-generation-adapter.js";
+import { OpenAIResponseSnapshot } from "./types.js";
 
 type AdapterOptions = Parameters<typeof createOpenAIGenerationAdapter>[0];
 type CreateResponse = AdapterOptions["createResponse"];

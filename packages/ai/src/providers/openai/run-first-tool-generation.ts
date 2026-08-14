@@ -3,11 +3,8 @@ import OpenAI from "openai";
 import { createGenerationParameters } from "../../labs/generation-parameters.js";
 import { createMessageSequence } from "../../labs/message-sequence.js";
 import { createOpenAIGenerationAdapter } from "./openai-generation-adapter.js";
-import {
-  ChangeReview,
-  ChangeReviewSchema,
-} from "../../reviews/change-review.js";
-import { StructuredGenerationRequest } from "../../generation/structured-generation.js";
+import { ToolGenerationRequest } from "../../generation/tool-calling.js";
+import { getChangeEvidence } from "../../reviews/get-change-evidence.js";
 
 const getRequiredEnvironmentVariable = (name: string): string => {
   const value = process.env[name];
@@ -19,7 +16,7 @@ const getRequiredEnvironmentVariable = (name: string): string => {
   return value;
 };
 
-const runFirstStructuredGeneration = async (): Promise<void> => {
+const runFirstToolGeneration = async (): Promise<void> => {
   // 1. Configuração externa
   const apiKey = getRequiredEnvironmentVariable("OPENAI_API_KEY");
   const model = getRequiredEnvironmentVariable("OPENAI_MODEL");
@@ -30,9 +27,13 @@ const runFirstStructuredGeneration = async (): Promise<void> => {
   });
 
   // 3. Adapter configurado
+  let providerRequests = 0;
   const adapter = createOpenAIGenerationAdapter({
     model,
-    createResponse: (request) => client.responses.create(request),
+    async createResponse(request) {
+      providerRequests += 1;
+      return client.responses.create(request);
+    },
   });
 
   // 4. Mensagens no formato interno do ChangePilot
@@ -41,13 +42,10 @@ const runFirstStructuredGeneration = async (): Promise<void> => {
       "You are ChangePilot.",
       "Review only the supplied repository evidence.",
       "Do not invent facts that are not present.",
+      "use the available get_change_evidence tool to check on each provided path before producing the review",
     ].join(" "),
     [],
-    [
-      "Review this change:",
-      "- src/auth/session.ts changes session expiration from 24 hours to 30 days.",
-      "- No authentication tests were changed.",
-    ].join("\n"),
+    ["Review this change:", "- src/auth/session.ts"].join("\n"),
   );
 
   // 5. Parâmetros no formato interno do ChangePilot
@@ -64,24 +62,19 @@ const runFirstStructuredGeneration = async (): Promise<void> => {
   const request = {
     messages,
     parameters,
-    output: {
-      schemaName: "change_review",
-      schema: ChangeReviewSchema,
-    },
-  } satisfies StructuredGenerationRequest<ChangeReview>;
+    maxToolRounds: 5,
+    tools: [getChangeEvidence],
+  } satisfies ToolGenerationRequest;
 
   // 7. Geração
-  const response = await adapter.generateStructured(request);
+  const response = await adapter.generateWithTools(request);
 
   // 8. Saída segura
   console.log(
     JSON.stringify(
       {
-        request: {
-          messages,
-          parameters,
-          schemaName: request.output.schemaName,
-        },
+        providerRequests,
+        request,
         response,
       },
       null,
@@ -90,7 +83,7 @@ const runFirstStructuredGeneration = async (): Promise<void> => {
   );
 };
 
-runFirstStructuredGeneration().catch((error: unknown) => {
+runFirstToolGeneration().catch((error: unknown) => {
   const message =
     error instanceof Error ? error.message : "Unknown generation error.";
 

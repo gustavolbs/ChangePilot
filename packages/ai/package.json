@@ -9,6 +9,7 @@
   "scripts": {
     "check-types": "tsc --noEmit",
     "generate:openai": "node --env-file=../../.env --import tsx src/providers/openai/run-first-generation.ts",
+    "generate:tools:openai": "node --env-file=../../.env --import tsx src/providers/openai/run-first-tool-generation.ts",
     "generate:structured:openai": "node --env-file=../../.env --import tsx src/providers/openai/run-first-structured-generation.ts",
     "test": "vitest run"
   },

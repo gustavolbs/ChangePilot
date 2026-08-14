@@ -1,19 +1,26 @@
-import type { ResponseCreateParamsNonStreaming } from "openai/resources/responses/responses";
+import type {
+  ResponseCreateParamsNonStreaming,
+  Tool,
+} from "openai/resources/responses/responses";
 import type {
   FinishReason,
   GenerationRequest,
   GenerationResponse,
 } from "../../generation/generation.js";
-import type { OpenAIResponseSnapshot } from "./openai-generation-adapter.js";
+import { ToolDefinition } from "../../generation/tool-calling.js";
+import { zodResponsesFunction, zodTextFormat } from "openai/helpers/zod";
+import {
+  MappedOpenAIRequest,
+  OpenAIResponseSnapshot,
+  ZodMapInput,
+} from "./types.js";
 
 type MapRequestInput = {
   model: string;
   request: GenerationRequest;
 };
 
-export const mapRequest = (
-  input: MapRequestInput,
-): ResponseCreateParamsNonStreaming => {
+export const mapRequest = (input: MapRequestInput): MappedOpenAIRequest => {
   const { messages, parameters } = input.request;
   const [instruction, ...conversationMessages] = messages;
 
@@ -113,4 +120,35 @@ export const mapFinishReason = (
   throw new Error(
     `OpenAI response status cannot produce a GenerationResponse: ${response.status}.`,
   );
+};
+
+const mapTool = (tool: ToolDefinition): Tool => {
+  const copy = { ...tool };
+
+  return zodResponsesFunction({
+    name: copy.name,
+    parameters: copy.inputSchema,
+    description: copy.description,
+  });
+};
+
+export const mapTools = (tools: readonly ToolDefinition[]): Tool[] => {
+  return tools.map((tool) => mapTool(tool));
+};
+
+export const zodMapRequest = <Output>({
+  model,
+  request,
+}: ZodMapInput<Output>): ResponseCreateParamsNonStreaming => {
+  const mappedRequest = mapRequest({
+    model,
+    request,
+  });
+
+  return {
+    ...mappedRequest,
+    text: {
+      format: zodTextFormat(request.output.schema, request.output.schemaName),
+    },
+  };
 };

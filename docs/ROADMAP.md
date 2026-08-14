@@ -41,7 +41,7 @@
 - [x] System messages
 - [x] User messages
 - [x] Assistant messages
-- [ ] Tool messages
+- [x] Tool messages
 - [x] Conversa como sequência estruturada
 - [x] Modelar messages em TypeScript
 - [x] Separar domínio da aplicação de formatos específicos de providers
@@ -113,16 +113,16 @@
 
 ## 01.11 — Tool / Function Calling
 
-- [ ] Entender o que tool calling realmente significa
-- [ ] Entender que o modelo não executa a ferramenta
-- [ ] Tool definitions
-- [ ] Tool arguments
-- [ ] Tool selection
-- [ ] Execução pela aplicação
-- [ ] Tool result
-- [ ] Continuação da geração
-- [ ] Criar primeira tool local
-- [ ] Validar argumentos da tool
+- [x] Entender o que tool calling realmente significa
+- [x] Entender que o modelo não executa a ferramenta
+- [x] Tool definitions
+- [x] Tool arguments
+- [x] Tool selection
+- [x] Execução pela aplicação
+- [x] Tool result
+- [x] Continuação da geração
+- [x] Criar primeira tool local
+- [x] Validar argumentos da tool
 
 ## 01.12 — Streaming
 
