@@ -121,7 +121,7 @@ export const mapFinishReason = (
   );
 };
 
-const mapTool = <Input>(tool: ToolDefinition<Input>): Tool => {
+const mapTool = (tool: ToolDefinition): Tool => {
   const copy = { ...tool };
 
   return zodResponsesFunction({
@@ -131,8 +131,6 @@ const mapTool = <Input>(tool: ToolDefinition<Input>): Tool => {
   });
 };
 
-export const mapTools = <Input>(
-  tools: readonly ToolDefinition<Input>[],
-): Tool[] => {
+export const mapTools = (tools: readonly ToolDefinition[]): Tool[] => {
   return tools.map((tool) => mapTool(tool));
 };

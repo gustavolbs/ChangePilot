@@ -1,7 +1,10 @@
-import { ZodType } from "zod";
+import z, { ZodType } from "zod";
 import { GenerationRequest, GenerationResponse } from "./generation.js";
 
-export type ToolDefinition<Input = unknown> = Readonly<{
+type Input = z.infer<ZodType>;
+type Output = z.output<ZodType>;
+
+export type ToolDefinition<Input> = Readonly<{
   name: string;
   description: string;
   inputSchema: ZodType<Input>;

@@ -122,21 +122,25 @@ export function createOpenAIGenerationAdapter(
       validateTools(request.tools);
       validateMaxToolRounds(request.maxToolRounds);
       const input = [];
-
       const mappedTools = mapTools(request.tools);
 
-      const mappedPartialRequest = mapRequest({
-        model: options.model,
-        request,
-      });
-
-      const openAIRequest: ResponseCreateParamsNonStreaming = {
-        ...mappedPartialRequest,
-        tools: mappedTools,
-        parallel_tool_calls: false,
-      };
-
       while (true) {
+        let providerInput = request.messages;
+        let rounds = 0;
+        const toolExecutions = [];
+        let accumulatedUsage = {};
+
+        const mappedPartialRequest = mapRequest({
+          model: options.model,
+          request,
+        });
+
+        const openAIRequest: ResponseCreateParamsNonStreaming = {
+          ...mappedPartialRequest,
+          tools: mappedTools,
+          parallel_tool_calls: false,
+        };
+
         const openAIResponse = await options.createResponse(openAIRequest);
 
         if (containsRefusal(openAIResponse)) {
@@ -146,10 +150,19 @@ export function createOpenAIGenerationAdapter(
 
         if (toolCalls.length === 0) {
           // HOW DO I DEFINE THIS
-          return finalResponse;
+          const baseResponse = mapResponse(openAIResponse);
+          return {
+            ...baseResponse,
+            toolExecutions,
+            usage: accumulatedUsage,
+          };
         }
 
-        // DO I PASS THE LIMIT AND THE ROUNDS RUNNED HERE?
+        if (rounds >= request.maxToolRounds) {
+          throw new RangeError("OpenAI: Too many tool calls.");
+        }
+
+        rounds += 1;
         const outputs = await executeToolCalls(toolCalls);
 
         input.push(...openAIResponse.output);
@@ -246,7 +259,7 @@ const zodMapRequest = <Output>({
   };
 };
 
-const validateTools = (tools: ToolDefinition[]) => {
+const validateTools = (tools: readonly ToolDefinition[]) => {
   if (!Array.isArray(tools)) {
     throw new Error("OpenAI: `tools` must be a valid array.");
   }
@@ -286,5 +299,7 @@ const findToolCalls = (response: OpenAIResponseSnapshot) => {
 const executeToolCalls = async (tools: ResponseFunctionToolCall[]) => {
   tools.forEach((tool) => {
     const args = JSON.parse(tool.arguments);
+
+    tool.name;
   });
 };

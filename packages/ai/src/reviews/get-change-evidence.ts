@@ -20,7 +20,7 @@ const evidenceByPath = new Map([
   ],
 ]);
 
-export const getChangeEvidence = defineTool<GetChangeEvidenceInput>({
+export const getChangeEvidence = defineTool({
   name: "get_change_evidence",
   description: "Returns evidence about a changed repository file.",
   inputSchema: GetChangeEvidenceInputSchema,
