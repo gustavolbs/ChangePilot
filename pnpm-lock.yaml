@@ -29,7 +29,13 @@ importers:
       hono:
         specifier: ^4.13.1
         version: 4.13.1
+      openai:
+        specifier: ^7.4.0
+        version: 7.4.0(zod@4.4.3)
     devDependencies:
+      '@changepilot/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@repo/typescript-config':
         specifier: workspace:*
         version: link:../../packages/typescript-config

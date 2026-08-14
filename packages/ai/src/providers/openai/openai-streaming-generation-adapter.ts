@@ -10,6 +10,7 @@ export type OpenAIStreamingGenerationAdapterOptions = Readonly<{
   model: string;
   createStream: (
     request: ResponseCreateParamsStreaming,
+    signal?: AbortSignal,
   ) => Promise<AsyncIterable<ResponseStreamEvent>>;
 }>;
 

@@ -10,6 +10,13 @@ export type GenerationStreamEvent =
       response: GenerationResponse;
     }>;
 
+export type GenerationStreamOptions = Readonly<{
+  signal?: AbortSignal;
+}>;
+
 export interface StreamingGenerationAdapter {
-  stream(request: GenerationRequest): AsyncIterable<GenerationStreamEvent>;
+  stream(
+    request: GenerationRequest,
+    options?: GenerationStreamOptions,
+  ): AsyncIterable<GenerationStreamEvent>;
 }
