@@ -159,6 +159,79 @@ describe("OpenAI tool-calling adapter", () => {
     });
   });
 
+  it("maps and executes tools with heterogeneous input schemas", async () => {
+    const searchExecutor = vi.fn(
+      async (input: { query: string; limit: number }) => {
+        expectTypeOf(input).toEqualTypeOf<{
+          query: string;
+          limit: number;
+        }>();
+        return JSON.stringify({ matches: [], ...input });
+      },
+    );
+    const searchChanges = defineTool({
+      name: "search_changes",
+      description: "Searches changed files using a query and result limit.",
+      inputSchema: z.object({
+        query: z.string().min(1),
+        limit: z.number(),
+      }),
+      execute: searchExecutor,
+    });
+    const createResponse = createResponseFake(
+      createProviderResponse({
+        output: [
+          createFunctionCall({
+            call_id: "call_search",
+            name: "search_changes",
+            arguments: JSON.stringify({ query: "session", limit: 2 }),
+          }),
+        ],
+        output_text: "",
+      }),
+      createProviderResponse({ output_text: "Search completed." }),
+    );
+    const adapter = createOpenAIGenerationAdapter({ model, createResponse });
+
+    await adapter.generateWithTools(
+      createToolRequest({ tools: [getChangeEvidence, searchChanges] }),
+    );
+
+    expect(createResponse.mock.calls[0]?.[0].tools).toMatchObject([
+      {
+        type: "function",
+        name: "get_change_evidence",
+        strict: true,
+        parameters: {
+          type: "object",
+          properties: {
+            path: { type: "string" },
+          },
+          required: ["path"],
+          additionalProperties: false,
+        },
+      },
+      {
+        type: "function",
+        name: "search_changes",
+        strict: true,
+        parameters: {
+          type: "object",
+          properties: {
+            query: { type: "string" },
+            limit: { type: "number" },
+          },
+          required: ["query", "limit"],
+          additionalProperties: false,
+        },
+      },
+    ]);
+    expect(searchExecutor).toHaveBeenCalledExactlyOnceWith({
+      query: "session",
+      limit: 2,
+    });
+  });
+
   it("rejects duplicate tools before calling the provider", async () => {
     const createResponse = createResponseFake();
     const adapter = createOpenAIGenerationAdapter({ model, createResponse });
@@ -339,6 +412,60 @@ describe("OpenAI tool-calling adapter", () => {
     expect(executor).not.toHaveBeenCalled();
     expect(response.outputText).toBe("No tool was required.");
     expect(response.toolExecutions).toEqual([]);
+  });
+
+  it("does not execute a function call from an incomplete response", async () => {
+    const executor = vi.fn(async () => expectedEvidence);
+    const tool = createSpiedTool(executor);
+    const createResponse = createResponseFake(
+      createProviderResponse({
+        status: "incomplete",
+        incomplete_details: {
+          reason: "max_output_tokens",
+        },
+        output: [createFunctionCall()],
+        output_text: "Partial response.",
+      }),
+    );
+    const adapter = createOpenAIGenerationAdapter({ model, createResponse });
+
+    const response = await adapter.generateWithTools(
+      createToolRequest({ tools: [tool] }),
+    );
+
+    expect(response.finishReason).toBe("max-output-tokens");
+    expect(executor).not.toHaveBeenCalled();
+    expect(createResponse).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not execute a function call when the model also refuses", async () => {
+    const executor = vi.fn(async () => expectedEvidence);
+    const tool = createSpiedTool(executor);
+    const refusalMessage = {
+      id: "msg_tool_refusal_123",
+      type: "message",
+      role: "assistant",
+      status: "completed",
+      content: [
+        {
+          type: "refusal",
+          refusal: "I cannot perform that tool request.",
+        },
+      ],
+    } satisfies OpenAIResponseSnapshot["output"][number];
+    const createResponse = createResponseFake(
+      createProviderResponse({
+        output: [refusalMessage, createFunctionCall()],
+        output_text: "",
+      }),
+    );
+    const adapter = createOpenAIGenerationAdapter({ model, createResponse });
+
+    await expect(
+      adapter.generateWithTools(createToolRequest({ tools: [tool] })),
+    ).rejects.toThrow(/refusal|refused/i);
+    expect(executor).not.toHaveBeenCalled();
+    expect(createResponse).toHaveBeenCalledTimes(1);
   });
 
   it("performs a second request after one tool call", async () => {

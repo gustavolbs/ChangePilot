@@ -27,9 +27,13 @@ const runFirstToolGeneration = async (): Promise<void> => {
   });
 
   // 3. Adapter configurado
+  let providerRequests = 0;
   const adapter = createOpenAIGenerationAdapter({
     model,
-    createResponse: (request) => client.responses.create(request),
+    async createResponse(request) {
+      providerRequests += 1;
+      return client.responses.create(request);
+    },
   });
 
   // 4. Mensagens no formato interno do ChangePilot
@@ -69,6 +73,7 @@ const runFirstToolGeneration = async (): Promise<void> => {
   console.log(
     JSON.stringify(
       {
+        providerRequests,
         request,
         response,
       },
