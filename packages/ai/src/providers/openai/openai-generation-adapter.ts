@@ -21,7 +21,11 @@ import {
   validateSchemaName,
   validateTools,
 } from "./validators.js";
-import { executeToolCalls, findToolCalls } from "./utils.js";
+import {
+  executeToolCalls,
+  findToolCalls,
+  mapResponseOutputToInput,
+} from "./utils.js";
 import type { TokenUsage } from "../../generation/generation.js";
 
 export function createOpenAIGenerationAdapter(
@@ -155,9 +159,13 @@ export function createOpenAIGenerationAdapter(
 
         rounds += 1;
         const result = await executeToolCalls(toolCalls, toolRegistry);
+        const replayableOutput = mapResponseOutputToInput(
+          openAIResponse.output,
+        );
+
         accumulatedInput = [
           ...accumulatedInput,
-          ...openAIResponse.output,
+          ...replayableOutput,
           ...result.providerOutputs,
         ];
 

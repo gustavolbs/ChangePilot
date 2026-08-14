@@ -1,4 +1,5 @@
 import type {
+  ResponseInput,
   ResponseFunctionToolCall,
   ResponseInputItem,
 } from "openai/resources/responses/responses.mjs";
@@ -59,3 +60,19 @@ export const executeToolCalls = async (
   }
   return { providerOutputs, executions };
 };
+
+export const mapResponseOutputToInput = (
+  output: OpenAIResponseSnapshot["output"],
+): ResponseInput =>
+  output.map((item) => {
+    switch (item.type) {
+      case "function_call":
+      case "reasoning":
+      case "message":
+        return item;
+      default:
+        throw new Error(
+          `OpenAI: unsupported output item for tool continuation: ${item.type}.`,
+        );
+    }
+  });
