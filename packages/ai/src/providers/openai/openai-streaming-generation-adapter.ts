@@ -40,10 +40,7 @@ export function createOpenAIStreamingGenerationAdapter(
           };
         }
 
-        if (
-          event.type === "response.completed" ||
-          event.type === "response.incomplete"
-        ) {
+        if (event.type === "response.completed") {
           yield {
             type: "finished",
             response: mapResponse(event.response),
@@ -53,9 +50,7 @@ export function createOpenAIStreamingGenerationAdapter(
         }
 
         if (event.type === "response.failed") {
-          throw new Error(
-            `OpenAI: failed to continue the streaming: ${event.response.error}`,
-          );
+          throw new Error(event.response.error?.message ?? "unknown error");
         }
         if (event.type === "error") {
           throw new Error(
@@ -64,7 +59,7 @@ export function createOpenAIStreamingGenerationAdapter(
         }
       }
 
-      throw new Error("OpenAI: stream ended without a terminal event.");
+      throw new Error("OpenAI: stream ended without response.completed.");
     },
   };
 }

@@ -65,33 +65,28 @@ const runFirstStreamedGeneration = async (): Promise<void> => {
     parameters,
   } satisfies GenerationRequest;
 
-  let textDeltaEvents = "";
-  let counter = 0;
-  const response: GenerationResponse[] | undefined = [];
+  let outputText = "";
+  let textDeltaEvents = 0;
+  let response: GenerationResponse | undefined;
   // 7. Geração
   for await (const event of adapter.stream(request)) {
-    // TENHO CERTEZA Q ISSO ESTÁ ERRADO
     if (event.type === "text-delta") {
       process.stdout.write(event.delta);
-      counter += 1;
-      textDeltaEvents += event.delta;
+      textDeltaEvents += 1;
+      outputText += event.delta;
     }
 
     if (event.type === "finished") {
-      response.push(event.response);
+      response = event.response;
     }
   }
 
-  if (
-    !response[0]?.finishReason ||
-    !response[0]?.usage ||
-    !response[0]?.outputText
-  ) {
+  if (response === undefined) {
     throw new Error("OpenAI: failed to generate a response.");
   }
 
   // 8. Saída segura
-  console.log("----------------------------------------");
+  console.log();
   console.log(
     JSON.stringify(
       {
@@ -99,10 +94,9 @@ const runFirstStreamedGeneration = async (): Promise<void> => {
           messages,
           parameters,
         },
-        response: response[0],
+        response,
         textDeltaEvents,
-        concatenatedDeltasMatchFinalOutput:
-          textDeltaEvents === response[0].outputText,
+        concatenatedDeltasMatchFinalOutput: outputText === response.outputText,
       },
       null,
       2,
