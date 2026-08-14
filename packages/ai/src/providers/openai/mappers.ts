@@ -1,5 +1,4 @@
 import type {
-  Response,
   ResponseCreateParamsNonStreaming,
   Tool,
 } from "openai/resources/responses/responses";
@@ -8,9 +7,9 @@ import type {
   GenerationRequest,
   GenerationResponse,
 } from "../../generation/generation.js";
-import { type OpenAIResponseSnapshot } from "./openai-generation-adapter.js";
 import { ToolDefinition } from "../../generation/tool-calling.js";
-import { zodResponsesFunction } from "openai/helpers/zod";
+import { zodResponsesFunction, zodTextFormat } from "openai/helpers/zod";
+import { OpenAIResponseSnapshot, ZodMapInput } from "./types.js";
 
 type MapRequestInput = {
   model: string;
@@ -133,4 +132,21 @@ const mapTool = (tool: ToolDefinition): Tool => {
 
 export const mapTools = (tools: readonly ToolDefinition[]): Tool[] => {
   return tools.map((tool) => mapTool(tool));
+};
+
+export const zodMapRequest = <Output>({
+  model,
+  request,
+}: ZodMapInput<Output>): ResponseCreateParamsNonStreaming => {
+  const mappedRequest = mapRequest({
+    model,
+    request,
+  });
+
+  return {
+    ...mappedRequest,
+    text: {
+      format: zodTextFormat(request.output.schema, request.output.schemaName),
+    },
+  };
 };

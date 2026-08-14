@@ -1,55 +1,29 @@
-import type {
-  GenerationAdapter,
-  GenerationRequest,
-} from "../../generation/generation.js";
-import { mapRequest, mapResponse, mapTools } from "./mappers.js";
-import type {
-  Response,
-  ResponseCreateParamsNonStreaming,
-  ResponseFunctionToolCall,
-} from "openai/resources/responses/responses.mjs";
-import type { ConversationMessage } from "../../labs/message-sequence.js";
+import { mapRequest, mapResponse, mapTools, zodMapRequest } from "./mappers.js";
+import type { ResponseCreateParamsNonStreaming } from "openai/resources/responses/responses.mjs";
 import {
-  StructuredGenerationAdapter,
   StructuredGenerationRequest,
   StructuredGenerationResponse,
 } from "../../generation/structured-generation.js";
-import { zodTextFormat } from "openai/helpers/zod";
 import {
-  ToolCallingAdapter,
-  ToolDefinition,
   ToolExecution,
   ToolGenerationRequest,
   ToolGenerationResponse,
 } from "../../generation/tool-calling.js";
-
-export type OpenAIResponseSnapshot = Pick<
-  Response,
-  | "id"
-  | "model"
-  | "status"
-  | "output"
-  | "output_text"
-  | "usage"
-  | "incomplete_details"
-  | "error"
->;
-
-type OpenAIGenerationAdapterOptions = Readonly<{
-  model: string;
-  createResponse: (
-    request: ResponseCreateParamsNonStreaming,
-  ) => Promise<OpenAIResponseSnapshot>;
-}>;
-
-export type OpenAIGenerationAdapter = GenerationAdapter &
-  StructuredGenerationAdapter &
-  ToolCallingAdapter;
-
-type ZodMapInput<Output> = Readonly<{
-  model: string;
-  request: StructuredGenerationRequest<Output>;
-}>;
+import {
+  OpenAIGenerationAdapterOptions,
+  OpenAIGenerationAdapter,
+} from "./types.js";
+import {
+  containsRefusal,
+  validateGenerationRequest,
+  validateMaxToolRounds,
+  validateModel,
+  validateSchemaName,
+  validateTools,
+} from "./validators.js";
+import { executeToolCalls, findToolCalls } from "./utils.js";
+import { Usage } from "openai/resources/admin/organization/usage.mjs";
+import { TokenUsage } from "../../generation/generation.js";
 
 export function createOpenAIGenerationAdapter(
   options: OpenAIGenerationAdapterOptions,
@@ -133,13 +107,15 @@ export function createOpenAIGenerationAdapter(
         request,
       });
       let accumulatedInput = mappedRequest.input;
+      let rounds: number = 0;
+      let accumulatedUsage: TokenUsage = {
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+      };
+      const toolExecutions: ToolExecution[] = [];
 
       while (true) {
-        let providerInput = request.messages;
-        let rounds = 0;
-        const toolExecutions = [];
-        let accumulatedUsage = {};
-
         const openAIRequest: ResponseCreateParamsNonStreaming = {
           ...mappedRequest,
           input: accumulatedInput,
@@ -148,14 +124,24 @@ export function createOpenAIGenerationAdapter(
         };
 
         const openAIResponse = await options.createResponse(openAIRequest);
+        if (!openAIResponse.usage) {
+          throw new RangeError("OpenAI: usage not defined at the response.");
+        }
 
         if (containsRefusal(openAIResponse)) {
-          throw new Error("OpenAI: Model refused the structured response.");
+          throw new Error("OpenAI: Model refused the tool response.");
         }
-        const toolCalls = findToolCalls(openAIResponse);
+        accumulatedUsage = {
+          inputTokens:
+            accumulatedUsage.inputTokens + openAIResponse.usage?.input_tokens,
+          outputTokens:
+            accumulatedUsage.outputTokens + openAIResponse.usage?.output_tokens,
+          totalTokens:
+            accumulatedUsage.totalTokens + openAIResponse.usage?.total_tokens,
+        };
 
+        const toolCalls = findToolCalls(openAIResponse);
         if (toolCalls.length === 0) {
-          // HOW DO I DEFINE THIS
           const baseResponse = mapResponse(openAIResponse);
           return {
             ...baseResponse,
@@ -173,8 +159,10 @@ export function createOpenAIGenerationAdapter(
         accumulatedInput = [
           ...accumulatedInput,
           ...openAIResponse.output,
-          ...result,
+          ...result.providerOutputs,
         ];
+
+        toolExecutions.push(...result.executions);
 
         input.push(...openAIResponse.output);
         input.push(...result);
@@ -182,158 +170,3 @@ export function createOpenAIGenerationAdapter(
     },
   };
 }
-
-const validateGenerationRequest = (request: GenerationRequest): void => {
-  validateMessages(request.messages);
-  validateStopSequences(request.parameters.stopSequences);
-
-  if (request.parameters.stopSequences.length > 0) {
-    throw new RangeError(
-      "OpenAI: stopSequences are not supported by this adapter.",
-    );
-  }
-};
-
-const validateModel = (model: string): void => {
-  if (!model?.trim()) {
-    throw new Error("OpenAI: Model name cannot be empty.");
-  }
-};
-
-const validateSchemaName = (schemaName: string): void => {
-  if (!schemaName.trim()) {
-    throw new RangeError("OpenAI: Schema name cannot be empty.");
-  }
-
-  if (!/^[A-Za-z0-9_-]{1,64}$/.test(schemaName)) {
-    throw new RangeError(
-      "OpenAI: Schema name must contain only letters, numbers, underscores, or hyphens and be at most 64 characters.",
-    );
-  }
-};
-
-const containsRefusal = (response: OpenAIResponseSnapshot): boolean =>
-  response.output.some(
-    (item) =>
-      item.type === "message" &&
-      item.content.some((content) => content.type === "refusal"),
-  );
-
-const validateMessages = (messages: readonly ConversationMessage[]): void => {
-  if (messages.length < 2) {
-    throw new RangeError(
-      "OpenAI: Message sequence must contain an instruction and at least one subsequent message.",
-    );
-  }
-
-  messages.forEach((m) => {
-    if (!m.content.trim() || !m.role.trim()) {
-      throw new RangeError("OpenAI: message and role cannot be empty");
-    }
-  });
-};
-
-const validateStopSequences = (stopSequences: readonly string[]) => {
-  if (!Array.isArray(stopSequences)) {
-    throw new RangeError("Stop sequences must be an array.");
-  }
-
-  for (const sequence of stopSequences) {
-    if (typeof sequence !== "string" || !sequence.trim()) {
-      throw new RangeError("Stop sequences must be non-empty strings.");
-    }
-  }
-};
-
-const zodMapRequest = <Output>({
-  model,
-  request,
-}: ZodMapInput<Output>): ResponseCreateParamsNonStreaming => {
-  const mappedRequest = mapRequest({
-    model,
-    request,
-  });
-
-  return {
-    ...mappedRequest,
-    text: {
-      format: zodTextFormat(request.output.schema, request.output.schemaName),
-    },
-  };
-};
-
-const validateTools = (tools: readonly ToolDefinition[]) => {
-  if (!Array.isArray(tools)) {
-    throw new Error("OpenAI: `tools` must be a valid array.");
-  }
-  tools.forEach((tool) => {
-    validateTool(tool);
-  });
-};
-
-const validateMaxToolRounds = (maxToolsNumbers: number) => {
-  if (
-    !maxToolsNumbers ||
-    maxToolsNumbers < 0 ||
-    !Number.isInteger(maxToolsNumbers) ||
-    !Number.isFinite(maxToolsNumbers)
-  ) {
-    throw new RangeError("OpenAI: maxToolsNumber must be a positive integer.");
-  }
-};
-
-export const validateTool = <Input>(tool: ToolDefinition) => {
-  if (
-    !tool.name.trim() ||
-    !tool.description.trim() ||
-    !tool.inputSchema ||
-    !tool.execute
-  ) {
-    throw new RangeError(
-      "OpenAI: all the tools fields must be rightly filled.",
-    );
-  }
-};
-
-const findToolCalls = (response: OpenAIResponseSnapshot) => {
-  return response.output.filter((e) => e.type === "function_call");
-};
-
-const executeToolCalls = async (
-  toolCalls: ResponseFunctionToolCall[],
-  toolRegistry: Map<string, ToolDefinition>,
-) => {
-  const result = [];
-  for (const call of toolCalls) {
-    const definition = toolRegistry.get(call.name);
-
-    if (!definition) {
-      throw new Error(`Unknown tool: ${call.name}`);
-    }
-
-    const parsedJson: unknown = JSON.parse(call.arguments);
-    const output = await definition.execute(parsedJson);
-
-    const openAIResult = {
-      type: "function_call_output",
-      call_id: call.call_id,
-      output,
-    };
-    const toolExecution: ToolExecution = {
-      call: {
-        callId: call.call_id,
-        input: call.arguments,
-        name: call.name,
-      },
-      result: {
-        type: "tool-result",
-        callId: call.call_id,
-        output,
-      },
-    };
-
-    result.push(openAIResult);
-    result.push(toolExecution);
-  }
-  return result;
-};

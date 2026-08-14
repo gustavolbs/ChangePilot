@@ -51,4 +51,19 @@ export interface ToolCallingAdapter {
 
 export const defineTool = <Schema extends ZodType>(
   definition: ToolDraft<Schema>,
-): ToolDefinition => definition;
+): ToolDefinition => {
+  return {
+    ...definition,
+    execute(input) {
+      const validation = definition.inputSchema.safeParse(input);
+
+      if (!validation.success) {
+        throw new Error(
+          "OpenAI: Tool definition does not match the requested schema.",
+        );
+      }
+
+      return definition.execute(validation.data);
+    },
+  };
+};

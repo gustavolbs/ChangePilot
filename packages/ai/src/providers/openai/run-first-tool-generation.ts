@@ -38,6 +38,7 @@ const runFirstToolGeneration = async (): Promise<void> => {
       "You are ChangePilot.",
       "Review only the supplied repository evidence.",
       "Do not invent facts that are not present.",
+      "use the available get_change_evidence tool to check on each provided path before producing the review",
     ].join(" "),
     [],
     ["Review this change:", "- src/auth/session.ts"].join("\n"),
