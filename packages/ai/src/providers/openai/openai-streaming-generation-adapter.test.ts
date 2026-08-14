@@ -119,7 +119,10 @@ const collectEvents = async (
 
 describe("createOpenAIStreamingGenerationAdapter", () => {
   it("sends the OpenAI request with stream enabled", async () => {
-    const createStream = createStreamFake([createCompleted()]);
+    const createStream = createStreamFake([
+      createTextDelta("Review completed.", 1),
+      createCompleted(createProviderResponse(), 2),
+    ]);
     const adapter = createOpenAIStreamingGenerationAdapter({
       model,
       createStream,
