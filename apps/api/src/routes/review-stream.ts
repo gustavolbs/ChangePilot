@@ -23,22 +23,14 @@ export function createReviewStreamRoutes(adapter: StreamingGenerationAdapter) {
       return c.json({ error: "changeDescription is required." }, 400);
     }
 
+    const changeDescription = body.changeDescription.trim();
+
     return streamSSE(c, async (stream) => {
       const providerController = new AbortController();
 
       stream.onAbort(() => {
         providerController.abort();
       });
-
-      if (
-        typeof body !== "object" ||
-        body === null ||
-        !("changeDescription" in body) ||
-        typeof body.changeDescription !== "string" ||
-        !body.changeDescription.trim()
-      ) {
-        throw c.json({ error: "changeDescription is required." }, 400);
-      }
 
       const request = {
         messages: createMessageSequence(
@@ -48,7 +40,7 @@ export function createReviewStreamRoutes(adapter: StreamingGenerationAdapter) {
             "Do not invent facts that are not present.",
           ].join(" "),
           [],
-          `Review this change:\n${body.changeDescription?.trim()}`,
+          `Review this change:\n${changeDescription}`,
         ),
         parameters: createGenerationParameters({
           sampling: {
