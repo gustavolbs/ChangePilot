@@ -9,16 +9,18 @@ import type {
 } from "../../generation/generation.js";
 import { ToolDefinition } from "../../generation/tool-calling.js";
 import { zodResponsesFunction, zodTextFormat } from "openai/helpers/zod";
-import { OpenAIResponseSnapshot, ZodMapInput } from "./types.js";
+import {
+  MappedOpenAIRequest,
+  OpenAIResponseSnapshot,
+  ZodMapInput,
+} from "./types.js";
 
 type MapRequestInput = {
   model: string;
   request: GenerationRequest;
 };
 
-export const mapRequest = (
-  input: MapRequestInput,
-): ResponseCreateParamsNonStreaming => {
+export const mapRequest = (input: MapRequestInput): MappedOpenAIRequest => {
   const { messages, parameters } = input.request;
   const [instruction, ...conversationMessages] = messages;
 

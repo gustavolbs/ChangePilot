@@ -58,9 +58,7 @@ export const defineTool = <Schema extends ZodType>(
       const validation = definition.inputSchema.safeParse(input);
 
       if (!validation.success) {
-        throw new Error(
-          "OpenAI: Tool definition does not match the requested schema.",
-        );
+        throw new Error(`Tool "${definition.name}" received invalid input.`);
       }
 
       return definition.execute(validation.data);

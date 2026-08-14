@@ -2,6 +2,7 @@ import type { GenerationAdapter } from "../../generation/generation.js";
 import type {
   Response,
   ResponseCreateParamsNonStreaming,
+  ResponseInput,
 } from "openai/resources/responses/responses.mjs";
 import {
   StructuredGenerationAdapter,
@@ -36,3 +37,10 @@ export type ZodMapInput<Output> = Readonly<{
   model: string;
   request: StructuredGenerationRequest<Output>;
 }>;
+
+export type MappedOpenAIRequest = Omit<
+  ResponseCreateParamsNonStreaming,
+  "input"
+> & {
+  input: ResponseInput;
+};

@@ -1,15 +1,15 @@
 import { mapRequest, mapResponse, mapTools, zodMapRequest } from "./mappers.js";
 import type { ResponseCreateParamsNonStreaming } from "openai/resources/responses/responses.mjs";
-import {
+import type {
   StructuredGenerationRequest,
   StructuredGenerationResponse,
 } from "../../generation/structured-generation.js";
-import {
+import type {
   ToolExecution,
   ToolGenerationRequest,
   ToolGenerationResponse,
 } from "../../generation/tool-calling.js";
-import {
+import type {
   OpenAIGenerationAdapterOptions,
   OpenAIGenerationAdapter,
 } from "./types.js";
@@ -22,8 +22,7 @@ import {
   validateTools,
 } from "./validators.js";
 import { executeToolCalls, findToolCalls } from "./utils.js";
-import { Usage } from "openai/resources/admin/organization/usage.mjs";
-import { TokenUsage } from "../../generation/generation.js";
+import type { TokenUsage } from "../../generation/generation.js";
 
 export function createOpenAIGenerationAdapter(
   options: OpenAIGenerationAdapterOptions,
@@ -96,7 +95,7 @@ export function createOpenAIGenerationAdapter(
       validateGenerationRequest(request);
       validateTools(request.tools);
       validateMaxToolRounds(request.maxToolRounds);
-      const input = [];
+
       const mappedTools = mapTools(request.tools);
       const toolRegistry = new Map(
         request.tools.map((definition) => [definition.name, definition]),
@@ -141,12 +140,12 @@ export function createOpenAIGenerationAdapter(
         };
 
         const toolCalls = findToolCalls(openAIResponse);
-        if (toolCalls.length === 0) {
+        if (toolCalls.length === 0 || openAIResponse.status !== "completed") {
           const baseResponse = mapResponse(openAIResponse);
           return {
             ...baseResponse,
-            toolExecutions,
             usage: accumulatedUsage,
+            toolExecutions,
           };
         }
 
@@ -163,9 +162,6 @@ export function createOpenAIGenerationAdapter(
         ];
 
         toolExecutions.push(...result.executions);
-
-        input.push(...openAIResponse.output);
-        input.push(...result);
       }
     },
   };

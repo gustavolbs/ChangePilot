@@ -65,13 +65,22 @@ const validateStopSequences = (stopSequences: readonly string[]) => {
   }
 };
 
-export const validateTools = (tools: readonly ToolDefinition[]) => {
-  if (!Array.isArray(tools)) {
-    throw new Error("OpenAI: `tools` must be a valid array.");
+export const validateTools = (tools: readonly ToolDefinition[]): void => {
+  if (!Array.isArray(tools) || tools.length === 0) {
+    throw new RangeError("OpenAI: at least one tool is required.");
   }
-  tools.forEach((tool) => {
+
+  const names = new Set<string>();
+
+  for (const tool of tools) {
     validateTool(tool);
-  });
+
+    if (names.has(tool.name)) {
+      throw new RangeError(`OpenAI: duplicate tool name "${tool.name}".`);
+    }
+
+    names.add(tool.name);
+  }
 };
 
 export const validateMaxToolRounds = (maxToolsNumbers: number) => {
@@ -86,14 +95,13 @@ export const validateMaxToolRounds = (maxToolsNumbers: number) => {
 };
 
 export const validateTool = (tool: ToolDefinition) => {
-  if (
-    !tool.name.trim() ||
-    !tool.description.trim() ||
-    !tool.inputSchema ||
-    !tool.execute
-  ) {
-    throw new RangeError(
-      "OpenAI: all the tools fields must be rightly filled.",
-    );
+  if (typeof tool.name !== "string" || !tool.name.trim()) {
+    throw new Error("OpenAI: name is not valid");
+  }
+  if (typeof tool.description !== "string" || !tool.description.trim()) {
+    throw new Error("OpenAI: description is not valid");
+  }
+  if (typeof tool.execute !== "function") {
+    throw new Error("OpenAI: execute is not valid");
   }
 };

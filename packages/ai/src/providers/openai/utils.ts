@@ -1,4 +1,7 @@
-import type { ResponseFunctionToolCall } from "openai/resources/responses/responses.mjs";
+import type {
+  ResponseFunctionToolCall,
+  ResponseInputItem,
+} from "openai/resources/responses/responses.mjs";
 import type {
   ToolDefinition,
   ToolExecution,
@@ -6,17 +9,15 @@ import type {
 import type { OpenAIResponseSnapshot } from "./types.js";
 
 export const findToolCalls = (response: OpenAIResponseSnapshot) => {
-  return response.output
-    .filter((e) => e.type === "function_call")
-    .filter((e) => e.status === "completed");
+  return response.output.filter((e) => e.type === "function_call");
 };
 
 export const executeToolCalls = async (
   toolCalls: ResponseFunctionToolCall[],
-  toolRegistry: Map<string, ToolDefinition>,
+  toolRegistry: ReadonlyMap<string, ToolDefinition>,
 ) => {
-  const providerOutputs = [];
-  const executions = [];
+  const providerOutputs: ResponseInputItem.FunctionCallOutput[] = [];
+  const executions: ToolExecution[] = [];
   for (const call of toolCalls) {
     const definition = toolRegistry.get(call.name);
 
@@ -24,10 +25,18 @@ export const executeToolCalls = async (
       throw new Error(`Unknown tool: ${call.name}`);
     }
 
-    const parsedJson: unknown = JSON.parse(call.arguments);
-    const output = await definition.execute(parsedJson);
+    let parsedJson: unknown;
 
-    const openAIResult = {
+    try {
+      parsedJson = JSON.parse(call.arguments);
+    } catch {
+      throw new Error(
+        `OpenAI: Tool "${call.name}" returned invalid JSON arguments.`,
+      );
+    }
+
+    const output = await definition.execute(parsedJson);
+    const openAIResult: ResponseInputItem.FunctionCallOutput = {
       type: "function_call_output",
       call_id: call.call_id,
       output,
@@ -35,7 +44,7 @@ export const executeToolCalls = async (
     const toolExecution: ToolExecution = {
       call: {
         callId: call.call_id,
-        input: call.arguments,
+        input: parsedJson,
         name: call.name,
       },
       result: {
