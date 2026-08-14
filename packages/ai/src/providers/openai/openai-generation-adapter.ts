@@ -18,6 +18,7 @@ import { zodTextFormat } from "openai/helpers/zod";
 import {
   ToolCallingAdapter,
   ToolDefinition,
+  ToolExecution,
   ToolGenerationRequest,
   ToolGenerationResponse,
 } from "../../generation/tool-calling.js";
@@ -123,6 +124,15 @@ export function createOpenAIGenerationAdapter(
       validateMaxToolRounds(request.maxToolRounds);
       const input = [];
       const mappedTools = mapTools(request.tools);
+      const toolRegistry = new Map(
+        request.tools.map((definition) => [definition.name, definition]),
+      );
+
+      const mappedRequest = mapRequest({
+        model: options.model,
+        request,
+      });
+      let accumulatedInput = mappedRequest.input;
 
       while (true) {
         let providerInput = request.messages;
@@ -130,13 +140,9 @@ export function createOpenAIGenerationAdapter(
         const toolExecutions = [];
         let accumulatedUsage = {};
 
-        const mappedPartialRequest = mapRequest({
-          model: options.model,
-          request,
-        });
-
         const openAIRequest: ResponseCreateParamsNonStreaming = {
-          ...mappedPartialRequest,
+          ...mappedRequest,
+          input: accumulatedInput,
           tools: mappedTools,
           parallel_tool_calls: false,
         };
@@ -163,19 +169,16 @@ export function createOpenAIGenerationAdapter(
         }
 
         rounds += 1;
-        const outputs = await executeToolCalls(toolCalls);
+        const result = await executeToolCalls(toolCalls, toolRegistry);
+        accumulatedInput = [
+          ...accumulatedInput,
+          ...openAIResponse.output,
+          ...result,
+        ];
 
         input.push(...openAIResponse.output);
-        // HOW DO I DEFINE THIS
-        input.push(...outputs);
+        input.push(...result);
       }
-
-      // // NEED TO RUN THE LOOP AND FIND FUNCTION CALLS ON MESSAGES UNTIL NO MORE TOOLS
-      // const baseResponse = mapResponse(openAIResponse);
-
-      // if (baseResponse.finishReason !== "completed") {
-      //   throw new Error("OpenAI: Response not completed yet.");
-      // }
     },
   };
 }
@@ -279,7 +282,7 @@ const validateMaxToolRounds = (maxToolsNumbers: number) => {
   }
 };
 
-export const validateTool = <Input>(tool: ToolDefinition<Input>) => {
+export const validateTool = <Input>(tool: ToolDefinition) => {
   if (
     !tool.name.trim() ||
     !tool.description.trim() ||
@@ -296,10 +299,41 @@ const findToolCalls = (response: OpenAIResponseSnapshot) => {
   return response.output.filter((e) => e.type === "function_call");
 };
 
-const executeToolCalls = async (tools: ResponseFunctionToolCall[]) => {
-  tools.forEach((tool) => {
-    const args = JSON.parse(tool.arguments);
+const executeToolCalls = async (
+  toolCalls: ResponseFunctionToolCall[],
+  toolRegistry: Map<string, ToolDefinition>,
+) => {
+  const result = [];
+  for (const call of toolCalls) {
+    const definition = toolRegistry.get(call.name);
 
-    tool.name;
-  });
+    if (!definition) {
+      throw new Error(`Unknown tool: ${call.name}`);
+    }
+
+    const parsedJson: unknown = JSON.parse(call.arguments);
+    const output = await definition.execute(parsedJson);
+
+    const openAIResult = {
+      type: "function_call_output",
+      call_id: call.call_id,
+      output,
+    };
+    const toolExecution: ToolExecution = {
+      call: {
+        callId: call.call_id,
+        input: call.arguments,
+        name: call.name,
+      },
+      result: {
+        type: "tool-result",
+        callId: call.call_id,
+        output,
+      },
+    };
+
+    result.push(openAIResult);
+    result.push(toolExecution);
+  }
+  return result;
 };

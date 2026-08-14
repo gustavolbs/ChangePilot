@@ -1,14 +1,18 @@
 import z, { ZodType } from "zod";
 import { GenerationRequest, GenerationResponse } from "./generation.js";
 
-type Input = z.infer<ZodType>;
-type Output = z.output<ZodType>;
-
-export type ToolDefinition<Input> = Readonly<{
+type ToolDraft<Schema extends ZodType> = Readonly<{
   name: string;
   description: string;
-  inputSchema: ZodType<Input>;
-  execute(input: Input): Promise<string>;
+  inputSchema: Schema;
+  execute(input: z.output<Schema>): Promise<string>;
+}>;
+
+export type ToolDefinition = Readonly<{
+  name: string;
+  description: string;
+  inputSchema: ZodType;
+  execute(input: unknown): Promise<string>;
 }>;
 
 export type ToolCall = Readonly<{
@@ -45,6 +49,6 @@ export interface ToolCallingAdapter {
   ): Promise<ToolGenerationResponse>;
 }
 
-export const defineTool = <Input>(
-  definition: ToolDefinition<Input>,
-): ToolDefinition<Input> => definition;
+export const defineTool = <Schema extends ZodType>(
+  definition: ToolDraft<Schema>,
+): ToolDefinition => definition;
