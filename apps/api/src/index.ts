@@ -1,4 +1,3 @@
-import "dotenv/config";
 import { createOpenAIStreamingGenerationAdapter } from "@changepilot/ai";
 import { serve } from "@hono/node-server";
 import OpenAI from "openai";

@@ -17,13 +17,9 @@
         "dist/**"
       ],
       "env": [
+        "API_PORT",
         "NEXT_PUBLIC_API_URL",
-        "API_PORT",
-        "OPENAI_API_KEY",
-        "OPENAI_MODEL",
-        "API_PORT",
-        "WEB_ORIGIN",
-        "NEXT_PUBLIC_API_URL"
+        "WEB_ORIGIN"
       ]
     },
     "lint": {

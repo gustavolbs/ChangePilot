@@ -93,7 +93,6 @@ export default function Home() {
 
   const stopGeneration = () => {
     abortControllerRef.current?.abort();
-    setStatus("cancelled");
   };
 
   const streamReader = async (response: Response) => {
@@ -113,10 +112,14 @@ export default function Home() {
     while (true) {
       const { done, value } = await reader.read();
 
-      if (done && receivedTerminalEvent === false) {
-        throw new Error(
-          "The conection was closed before finishing the streaming.",
-        );
+      if (done) {
+        if (!receivedTerminalEvent) {
+          throw new Error(
+            "The connection was closed before finishing the stream.",
+          );
+        }
+
+        return;
       }
 
       buffer += decoder.decode(value, { stream: true });
@@ -134,9 +137,6 @@ export default function Home() {
           .map((line) => line.slice("data:".length).trimStart())
           .join("\n");
 
-        if (!data) {
-          throw new Error("No data found for this stream.");
-        }
         if (!data) {
           throw new Error("No data found for this stream.");
         }
@@ -176,7 +176,7 @@ export default function Home() {
       >
         <div className="absolute -top-48 left-1/2 size-136 -translate-x-1/2 rounded-full bg-primary/10 blur-[120px]" />
         <div className="absolute -right-32 bottom-0 size-80 rounded-full bg-primary/5 blur-[100px]" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,var(--border)_1px,transparent_1px),linear-gradient(to_bottom,var(--border)_1px,transparent_1px)] bg-size[72px_72px] opacity-[0.12] mask-[linear-gradient(to_bottom,black,transparent_72%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,var(--border)_1px,transparent_1px),linear-gradient(to_bottom,var(--border)_1px,transparent_1px)] bg-size-[72px_72px] opacity-[0.12] mask-[linear-gradient(to_bottom,black,transparent_72%)]" />
       </div>
 
       <header className="relative z-10 mx-auto flex w-full max-w-6xl items-center justify-between px-5 py-6 sm:px-8 lg:px-10">
