@@ -3,10 +3,16 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
   },
   "scripts": {
+    "build": "tsc",
     "check-types": "tsc --noEmit",
     "generate:openai": "node --env-file=../../.env --import tsx src/providers/openai/run-first-generation.ts",
     "generate:tools:openai": "node --env-file=../../.env --import tsx src/providers/openai/run-first-tool-generation.ts",

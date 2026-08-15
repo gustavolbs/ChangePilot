@@ -29,11 +29,13 @@
     },
     "check-types": {
       "dependsOn": [
+        "^build",
         "^check-types"
       ]
     },
     "test": {
       "dependsOn": [
+        "^build",
         "^test"
       ]
     },

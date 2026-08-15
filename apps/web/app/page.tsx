@@ -9,33 +9,21 @@ import {
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useReducer, useRef, useState } from "react";
 
-type GenerationStatus =
-  | "idle"
-  | "streaming"
-  | "completed"
-  | "cancelled"
-  | "error";
-
-type ReviewStreamEvent =
-  | Readonly<{
-      type: "text-delta";
-      delta: string;
-    }>
-  | Readonly<{
-      type: "finished";
-    }>
-  | Readonly<{
-      type: "error";
-      message: string;
-    }>;
+import {
+  getReviewStreamErrorMessage,
+  initialReviewGenerationState,
+  readReviewStream,
+  reduceReviewGeneration,
+} from "@/lib/review-stream";
 
 export default function Home() {
-  const [status, setStatus] = useState<GenerationStatus>("idle");
+  const [{ status, output, error }, dispatch] = useReducer(
+    reduceReviewGeneration,
+    initialReviewGenerationState,
+  );
   const [changeDescription, setChangeDescription] = useState<string>("");
-  const [output, setOutput] = useState<string>("");
-  const [error, setError] = useState<string | null>(null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -43,9 +31,7 @@ export default function Home() {
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
-    setStatus("streaming");
-    setOutput("");
-    setError(null);
+    dispatch({ type: "start" });
 
     try {
       const response = await fetch(
@@ -71,19 +57,17 @@ export default function Home() {
         throw new Error("The response does not contain a stream.");
       }
 
-      await streamReader(response);
+      await readReviewStream(response, (event) => dispatch(event));
     } catch (error: unknown) {
       if (error instanceof DOMException && error.name === "AbortError") {
-        setStatus("cancelled");
+        dispatch({ type: "cancelled" });
         return;
       }
 
-      setError(
-        error instanceof Error
-          ? error.message
-          : "An unknown streaming error occurred.",
-      );
-      setStatus("error");
+      dispatch({
+        type: "error",
+        message: getReviewStreamErrorMessage(error),
+      });
     } finally {
       if (abortControllerRef.current === controller) {
         abortControllerRef.current = null;
@@ -92,80 +76,8 @@ export default function Home() {
   };
 
   const stopGeneration = () => {
+    dispatch({ type: "cancelled" });
     abortControllerRef.current?.abort();
-  };
-
-  const streamReader = async (response: Response) => {
-    if (!response.body) {
-      throw new Error("Response body is not defined");
-    }
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-
-    if (!reader) {
-      throw new Error("Response body is not defined.");
-    }
-
-    let buffer = "";
-    let receivedTerminalEvent: boolean = false;
-
-    while (true) {
-      const { done, value } = await reader.read();
-
-      if (done) {
-        if (!receivedTerminalEvent) {
-          throw new Error(
-            "The connection was closed before finishing the stream.",
-          );
-        }
-
-        return;
-      }
-
-      buffer += decoder.decode(value, { stream: true });
-      buffer = buffer.replaceAll("\r\n", "\n");
-
-      let boundary = buffer.indexOf("\n\n");
-
-      while (boundary >= 0) {
-        const frame = buffer.slice(0, boundary);
-        buffer = buffer.slice(boundary + 2);
-
-        const data = frame
-          .split("\n")
-          .filter((line) => line.startsWith("data:"))
-          .map((line) => line.slice("data:".length).trimStart())
-          .join("\n");
-
-        if (!data) {
-          throw new Error("No data found for this stream.");
-        }
-        const event = JSON.parse(data) as ReviewStreamEvent;
-        if (event.type === "finished" || event.type === "error") {
-          receivedTerminalEvent = true;
-        }
-        update(event);
-
-        boundary = buffer.indexOf("\n\n");
-      }
-    }
-  };
-
-  const update = (event: ReviewStreamEvent) => {
-    switch (event.type) {
-      case "text-delta":
-        setOutput((current) => current + event.delta);
-        break;
-
-      case "finished":
-        setStatus("completed");
-        break;
-
-      case "error":
-        setStatus("error");
-        setError(event.message);
-        break;
-    }
   };
 
   return (
