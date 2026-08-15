@@ -30,6 +30,8 @@ export default function Home() {
   abortControllerRef.current = controller;
 
   const fetchData = async () => {
+    setStatus("streaming");
+    setOutput("");
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/reviews/stream`,
@@ -55,7 +57,6 @@ export default function Home() {
       }
 
       streamReader(response);
-      setStatus("idle");
       // TYPE SHOULD BE DEFINED
     } catch (error: any) {
       if (error instanceof DOMException && error.name === "AbortError") {
@@ -221,14 +222,11 @@ export default function Home() {
                   Your context stays private
                 </div>
 
-                {status === "idle" && (
+                {(status === "idle" || status === "completed") && (
                   <Button
                     size="lg"
                     className="h-10 rounded-xl px-4 shadow-[0_10px_30px_-12px_var(--primary)]"
-                    onClick={() => {
-                      fetchData();
-                      setStatus("streaming");
-                    }}
+                    onClick={fetchData}
                   >
                     Review change
                     <ArrowUp
