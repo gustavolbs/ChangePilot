@@ -1,6 +1,29 @@
+import { createOpenAIStreamingGenerationAdapter } from "@changepilot/ai";
 import { serve } from "@hono/node-server";
-import "dotenv/config";
-import { app } from "./routes/index.js";
+import OpenAI from "openai";
+import { createApp } from "./routes/index.js";
+
+const getRequiredEnvironmentVariable = (name: string): string => {
+  const value = process.env[name];
+
+  if (value === undefined || value.trim().length === 0) {
+    throw new Error(`Missing required environment variable: ${name}.`);
+  }
+
+  return value;
+};
+
+const openAIClient = new OpenAI({
+  apiKey: getRequiredEnvironmentVariable("OPENAI_API_KEY"),
+});
+
+const adapter = createOpenAIStreamingGenerationAdapter({
+  model: getRequiredEnvironmentVariable("OPENAI_MODEL"),
+  createStream: (request, signal) =>
+    openAIClient.responses.create(request, { signal }),
+});
+
+const app = createApp(adapter);
 
 serve(
   {

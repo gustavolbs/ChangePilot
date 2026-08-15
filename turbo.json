@@ -17,8 +17,9 @@
         "dist/**"
       ],
       "env": [
+        "API_PORT",
         "NEXT_PUBLIC_API_URL",
-        "API_PORT"
+        "WEB_ORIGIN"
       ]
     },
     "lint": {
@@ -28,11 +29,13 @@
     },
     "check-types": {
       "dependsOn": [
+        "^build",
         "^check-types"
       ]
     },
     "test": {
       "dependsOn": [
+        "^build",
         "^test"
       ]
     },

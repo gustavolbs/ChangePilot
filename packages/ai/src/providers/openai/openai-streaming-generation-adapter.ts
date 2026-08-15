@@ -10,6 +10,7 @@ export type OpenAIStreamingGenerationAdapterOptions = Readonly<{
   model: string;
   createStream: (
     request: ResponseCreateParamsStreaming,
+    signal?: AbortSignal,
   ) => Promise<AsyncIterable<ResponseStreamEvent>>;
 }>;
 
@@ -19,7 +20,7 @@ export function createOpenAIStreamingGenerationAdapter(
   validateModel(options.model);
 
   return {
-    async *stream(request) {
+    async *stream(request, streamOptions) {
       validateGenerationRequest(request);
 
       const openAIRequest = mapRequest({
@@ -27,10 +28,13 @@ export function createOpenAIStreamingGenerationAdapter(
         request,
       });
 
-      const openAIStream = await options.createStream({
-        ...openAIRequest,
-        stream: true,
-      });
+      const openAIStream = await options.createStream(
+        {
+          ...openAIRequest,
+          stream: true,
+        },
+        streamOptions?.signal,
+      );
 
       let outputText = "";
       for await (const event of openAIStream) {
@@ -42,7 +46,10 @@ export function createOpenAIStreamingGenerationAdapter(
           };
         }
 
-        if (event.type === "response.completed") {
+        if (
+          event.type === "response.completed" ||
+          event.type === "response.incomplete"
+        ) {
           yield {
             type: "finished",
             response: mapResponse({
