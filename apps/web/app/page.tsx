@@ -10,7 +10,6 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useRef, useState } from "react";
-import type { GenerationStreamEvent } from "@changepilot/ai";
 
 type GenerationStatus =
   | "idle"
@@ -19,19 +18,35 @@ type GenerationStatus =
   | "cancelled"
   | "error";
 
+type ReviewStreamEvent =
+  | Readonly<{
+      type: "text-delta";
+      delta: string;
+    }>
+  | Readonly<{
+      type: "finished";
+    }>
+  | Readonly<{
+      type: "error";
+      message: string;
+    }>;
+
 export default function Home() {
   const [status, setStatus] = useState<GenerationStatus>("idle");
-  const [changeDescription, setChangeDescription] = useState<string>();
+  const [changeDescription, setChangeDescription] = useState<string>("");
   const [output, setOutput] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
-  const controller = new AbortController();
-  abortControllerRef.current = controller;
 
   const fetchData = async () => {
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setStatus("streaming");
     setOutput("");
+    setError(null);
+
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/reviews/stream`,
@@ -56,16 +71,23 @@ export default function Home() {
         throw new Error("The response does not contain a stream.");
       }
 
-      streamReader(response);
-      // TYPE SHOULD BE DEFINED
-    } catch (error: any) {
+      await streamReader(response);
+    } catch (error: unknown) {
       if (error instanceof DOMException && error.name === "AbortError") {
         setStatus("cancelled");
         return;
       }
 
-      setError(error?.message);
+      setError(
+        error instanceof Error
+          ? error.message
+          : "An unknown streaming error occurred.",
+      );
       setStatus("error");
+    } finally {
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+      }
     }
   };
 
@@ -82,16 +104,19 @@ export default function Home() {
     const decoder = new TextDecoder();
 
     if (!reader) {
-      throw new Error("Response body is not defined");
+      throw new Error("Response body is not defined.");
     }
 
     let buffer = "";
+    let receivedTerminalEvent: boolean = false;
 
     while (true) {
       const { done, value } = await reader.read();
 
-      if (done) {
-        break;
+      if (done && receivedTerminalEvent === false) {
+        throw new Error(
+          "The conection was closed before finishing the streaming.",
+        );
       }
 
       buffer += decoder.decode(value, { stream: true });
@@ -103,11 +128,22 @@ export default function Home() {
         const frame = buffer.slice(0, boundary);
         buffer = buffer.slice(boundary + 2);
 
-        const data = frame.split("data:")[1];
+        const data = frame
+          .split("\n")
+          .filter((line) => line.startsWith("data:"))
+          .map((line) => line.slice("data:".length).trimStart())
+          .join("\n");
+
         if (!data) {
           throw new Error("No data found for this stream.");
         }
-        const event = JSON.parse(data) as GenerationStreamEvent;
+        if (!data) {
+          throw new Error("No data found for this stream.");
+        }
+        const event = JSON.parse(data) as ReviewStreamEvent;
+        if (event.type === "finished" || event.type === "error") {
+          receivedTerminalEvent = true;
+        }
         update(event);
 
         boundary = buffer.indexOf("\n\n");
@@ -115,7 +151,7 @@ export default function Home() {
     }
   };
 
-  const update = (event: GenerationStreamEvent) => {
+  const update = (event: ReviewStreamEvent) => {
     switch (event.type) {
       case "text-delta":
         setOutput((current) => current + event.delta);
@@ -157,12 +193,15 @@ export default function Home() {
           </span>
         </a>
 
-        <div className="flex items-center gap-2 rounded-full border border-border/70 bg-card/60 px-3 py-1.5 text-xs text-muted-foreground backdrop-blur-xl">
+        <div
+          aria-live="polite"
+          className="flex items-center gap-2 rounded-full border border-border/70 bg-card/60 px-3 py-1.5 text-xs text-muted-foreground backdrop-blur-xl"
+        >
           <span className="relative flex size-2">
             <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary opacity-40" />
             <span className="relative inline-flex size-2 rounded-full bg-primary" />
           </span>
-          Ready to review
+          {status}
         </div>
       </header>
 
@@ -222,8 +261,18 @@ export default function Home() {
                   Your context stays private
                 </div>
 
-                {(status === "idle" || status === "completed") && (
+                {status === "streaming" ? (
                   <Button
+                    size="lg"
+                    variant="destructive"
+                    className="h-10 rounded-xl px-4"
+                    onClick={stopGeneration}
+                  >
+                    Stop review
+                  </Button>
+                ) : (
+                  <Button
+                    disabled={!changeDescription.trim()}
                     size="lg"
                     className="h-10 rounded-xl px-4 shadow-[0_10px_30px_-12px_var(--primary)]"
                     onClick={fetchData}
@@ -236,27 +285,23 @@ export default function Home() {
                     />
                   </Button>
                 )}
-                {status === "streaming" && (
-                  <Button
-                    size="lg"
-                    variant="destructive"
-                    className="h-10 rounded-xl px-4"
-                    onClick={stopGeneration}
-                  >
-                    Stop review
-                  </Button>
-                )}
               </div>
             </div>
           </div>
 
           {output && (
-            <pre className="mt-4 overflow-x-auto rounded-2xl border border-border bg-card/80 p-4 text-xs leading-5 text-muted-foreground">
+            <pre
+              aria-live="polite"
+              className="mt-4 overflow-x-auto rounded-2xl border border-border bg-card/80 p-4 text-xs leading-5 text-muted-foreground whitespace-pre-wrap wrap-break-word"
+            >
               {output}
             </pre>
           )}
           {error && (
-            <pre className="mt-4 overflow-x-auto rounded-2xl border border-border bg-card/80 p-4 text-xs leading-5 text-destructive">
+            <pre
+              role="alert"
+              className="mt-4 overflow-x-auto rounded-2xl border border-border bg-card/80 p-4 text-xs leading-5 text-destructive"
+            >
               {error}
             </pre>
           )}

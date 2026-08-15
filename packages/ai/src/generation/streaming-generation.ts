@@ -8,10 +8,6 @@ export type GenerationStreamEvent =
   | Readonly<{
       type: "finished";
       response: GenerationResponse;
-    }>
-  | Readonly<{
-      type: "error";
-      message: string;
     }>;
 
 export type GenerationStreamOptions = Readonly<{
