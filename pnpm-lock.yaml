@@ -57,6 +57,9 @@ importers:
       '@base-ui/react':
         specifier: ^1.7.0
         version: 1.7.0(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      '@changepilot/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@tailwindcss/postcss':
         specifier: ^4.3.3
         version: 4.3.3
