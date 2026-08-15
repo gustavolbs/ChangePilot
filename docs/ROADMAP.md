@@ -126,14 +126,14 @@
 
 ## 01.12 — Streaming
 
-- [ ] Response completa vs streaming
-- [ ] Server-Sent Events / streams
-- [ ] Chunks
-- [ ] Tokens incrementais
-- [ ] Streaming no provider
-- [ ] Streaming API → frontend
-- [ ] Cancelamento
-- [ ] Erros durante streaming
+- [x] Response completa vs streaming
+- [x] Server-Sent Events / streams
+- [x] Chunks
+- [x] Tokens incrementais
+- [x] Streaming no provider
+- [x] Streaming API → frontend
+- [x] Cancelamento
+- [x] Erros durante streaming
 
 ## 01.13 — Token Usage e Custos
 

@@ -24,6 +24,25 @@ export function createReviewStreamRoutes(adapter: StreamingGenerationAdapter) {
     }
 
     const changeDescription = body.changeDescription.trim();
+    const request = {
+      messages: createMessageSequence(
+        [
+          "You are ChangePilot.",
+          "Review only the supplied change description.",
+          "Do not invent facts that are not present.",
+        ].join(" "),
+        [],
+        `Review this change:\n${changeDescription}`,
+      ),
+      parameters: createGenerationParameters({
+        sampling: {
+          strategy: "temperature",
+          temperature: 0,
+        },
+        maxOutputTokens: 500,
+        stopSequences: [],
+      }),
+    } satisfies GenerationRequest;
 
     return streamSSE(c, async (stream) => {
       const providerController = new AbortController();
@@ -31,26 +50,6 @@ export function createReviewStreamRoutes(adapter: StreamingGenerationAdapter) {
       stream.onAbort(() => {
         providerController.abort();
       });
-
-      const request = {
-        messages: createMessageSequence(
-          [
-            "You are ChangePilot.",
-            "Review only the supplied change description.",
-            "Do not invent facts that are not present.",
-          ].join(" "),
-          [],
-          `Review this change:\n${changeDescription}`,
-        ),
-        parameters: createGenerationParameters({
-          sampling: {
-            strategy: "temperature",
-            temperature: 0,
-          },
-          maxOutputTokens: 500,
-          stopSequences: [],
-        }),
-      } satisfies GenerationRequest;
 
       try {
         for await (const event of adapter.stream(request, {

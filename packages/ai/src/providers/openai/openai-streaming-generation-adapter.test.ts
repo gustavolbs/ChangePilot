@@ -17,6 +17,9 @@ import {
 type OpenAIStreamingRequest = Parameters<
   OpenAIStreamingGenerationAdapterOptions["createStream"]
 >[0];
+type OpenAIStreamingSignal = Parameters<
+  OpenAIStreamingGenerationAdapterOptions["createStream"]
+>[1];
 
 const model = "gpt-5.1";
 
@@ -103,7 +106,10 @@ const createFakeStream = (
 });
 
 const createStreamFake = (events: readonly ResponseStreamEvent[]) =>
-  vi.fn(async (_request: OpenAIStreamingRequest) => createFakeStream(events));
+  vi.fn(
+    async (_request: OpenAIStreamingRequest, _signal?: OpenAIStreamingSignal) =>
+      createFakeStream(events),
+  );
 
 const collectEvents = async (
   stream: AsyncIterable<GenerationStreamEvent>,
@@ -135,6 +141,27 @@ describe("createOpenAIStreamingGenerationAdapter", () => {
       model,
       stream: true,
     });
+  });
+
+  it("forwards the AbortSignal to createStream", async () => {
+    const controller = new AbortController();
+    const createStream = createStreamFake([
+      createTextDelta("Review completed.", 1),
+      createCompleted(createProviderResponse(), 2),
+    ]);
+    const adapter = createOpenAIStreamingGenerationAdapter({
+      model,
+      createStream,
+    });
+
+    await collectEvents(
+      adapter.stream(request, {
+        signal: controller.signal,
+      }),
+    );
+
+    expect(createStream).toHaveBeenCalledTimes(1);
+    expect(createStream.mock.calls[0]?.[1]).toBe(controller.signal);
   });
 
   it("emits text deltas unchanged and in their original order", async () => {
