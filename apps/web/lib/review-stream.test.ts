@@ -41,8 +41,16 @@ const startWithPartialOutput = (): ReviewGenerationState => {
 describe("review stream", () => {
   it("parses an event divided between two response chunks", async () => {
     const stream = [
-      createFrame({ type: "text-delta", delta: "Partial review." }),
-      createFrame({ type: "finished" }),
+      createFrame({
+        type: "text-delta",
+        delta: "Partial review.",
+      }),
+      createFrame({
+        type: "finished",
+        response: {
+          finishReason: "completed",
+        },
+      }),
     ].join("");
     const splitAt = stream.indexOf("review");
     const events: ReviewStreamEvent[] = [];
@@ -53,14 +61,21 @@ describe("review stream", () => {
     );
 
     expect(events).toEqual([
-      { type: "text-delta", delta: "Partial review." },
-      { type: "finished" },
+      {
+        type: "text-delta",
+        delta: "Partial review.",
+      },
+      {
+        type: "finished",
+        finishReason: "completed",
+      },
     ]);
   });
 
-  it("moves the generation to completed after finished", () => {
+  it("moves the generation to completed after a completed response", () => {
     const state = reduceReviewGeneration(startWithPartialOutput(), {
       type: "finished",
+      finishReason: "completed",
     });
 
     expect(state).toMatchObject({
@@ -68,6 +83,60 @@ describe("review stream", () => {
       output: "Partial review.",
       error: null,
     });
+  });
+
+  it.each([
+    [
+      "max-output-tokens",
+      "The review stopped because it reached the output token limit.",
+    ],
+    ["content-filter", "The review was interrupted by the content filter."],
+  ] as const)(
+    "moves %s to error while preserving partial output",
+    async (finishReason, expectedError) => {
+      let state = reduceReviewGeneration(initialReviewGenerationState, {
+        type: "start",
+      });
+
+      await readReviewStream(
+        createResponse([
+          createFrame({
+            type: "text-delta",
+            delta: "Partial review.",
+          }),
+          createFrame({
+            type: "finished",
+            response: {
+              finishReason,
+            },
+          }),
+        ]),
+        (event) => {
+          state = reduceReviewGeneration(state, event);
+        },
+      );
+
+      expect(state).toMatchObject({
+        status: "error",
+        output: "Partial review.",
+        error: expectedError,
+      });
+    },
+  );
+
+  it("rejects an unsupported finish reason", async () => {
+    const response = createResponse([
+      createFrame({
+        type: "finished",
+        response: {
+          finishReason: "unknown",
+        },
+      }),
+    ]);
+
+    await expect(readReviewStream(response, () => undefined)).rejects.toThrow(
+      "Invalid finished event.",
+    );
   });
 
   it("moves Stop to cancelled without removing partial output", () => {

@@ -46,7 +46,10 @@ export function createOpenAIStreamingGenerationAdapter(
           };
         }
 
-        if (event.type === "response.completed") {
+        if (
+          event.type === "response.completed" ||
+          event.type === "response.incomplete"
+        ) {
           yield {
             type: "finished",
             response: mapResponse({

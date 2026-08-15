@@ -39,7 +39,7 @@ export function createReviewStreamRoutes(adapter: StreamingGenerationAdapter) {
           strategy: "temperature",
           temperature: 0,
         },
-        maxOutputTokens: 500,
+        maxOutputTokens: 1_200,
         stopSequences: [],
       }),
     } satisfies GenerationRequest;

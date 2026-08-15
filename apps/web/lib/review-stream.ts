@@ -5,6 +5,11 @@ export type GenerationStatus =
   | "cancelled"
   | "error";
 
+export type ReviewFinishReason =
+  | "completed"
+  | "max-output-tokens"
+  | "content-filter";
+
 export type ReviewStreamEvent =
   | Readonly<{
       type: "text-delta";
@@ -12,6 +17,7 @@ export type ReviewStreamEvent =
     }>
   | Readonly<{
       type: "finished";
+      finishReason: ReviewFinishReason;
     }>
   | Readonly<{
       type: "error";
@@ -53,11 +59,25 @@ export const reduceReviewGeneration = (
         output: state.output + action.delta,
       };
 
-    case "finished":
+    case "finished": {
+      if (action.finishReason === "completed") {
+        return {
+          ...state,
+          status: "completed",
+        };
+      }
+
+      const message =
+        action.finishReason === "max-output-tokens"
+          ? "The review stopped because it reached the output token limit."
+          : "The review was interrupted by the content filter.";
+
       return {
         ...state,
-        status: "completed",
+        status: "error",
+        error: message,
       };
+    }
 
     case "cancelled":
       return {
@@ -76,6 +96,11 @@ export const reduceReviewGeneration = (
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
+
+const isReviewFinishReason = (value: unknown): value is ReviewFinishReason =>
+  value === "completed" ||
+  value === "max-output-tokens" ||
+  value === "content-filter";
 
 export const parseReviewStreamEvent = (data: string): ReviewStreamEvent => {
   let value: unknown;
@@ -101,10 +126,19 @@ export const parseReviewStreamEvent = (data: string): ReviewStreamEvent => {
         delta: value.delta,
       };
 
-    case "finished":
+    case "finished": {
+      if (
+        !isRecord(value.response) ||
+        !isReviewFinishReason(value.response.finishReason)
+      ) {
+        throw new Error("Invalid finished event.");
+      }
+
       return {
         type: "finished",
+        finishReason: value.response.finishReason,
       };
+    }
 
     case "error":
       if (typeof value.message !== "string") {
