@@ -19,3 +19,13 @@ export {
   calculateGenerationCost,
   createUsageCostRecord,
 } from "./usage/generation-cost.js";
+
+export {
+  type CreateGenerationLatencyRecordInput,
+  type GenerationLatency,
+  type GenerationLatencyRecord,
+  type GenerationLatencyTimestamps,
+  type MonotonicClock,
+  calculateGenerationLatency,
+  createGenerationLatencyRecord,
+} from "./observability/generation-latency.js";
