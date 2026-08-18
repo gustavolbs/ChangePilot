@@ -1,13 +1,18 @@
 import {
   createGenerationParameters,
   createMessageSequence,
+  type ModelPricing,
   type GenerationRequest,
   type StreamingGenerationAdapter,
+  createUsageCostRecord,
 } from "@changepilot/ai";
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 
-export function createReviewStreamRoutes(adapter: StreamingGenerationAdapter) {
+export function createReviewStreamRoutes(
+  adapter: StreamingGenerationAdapter,
+  pricing: ModelPricing,
+) {
   const routes = new Hono();
 
   routes.post("/stream", async (c) => {
@@ -55,6 +60,20 @@ export function createReviewStreamRoutes(adapter: StreamingGenerationAdapter) {
         for await (const event of adapter.stream(request, {
           signal: providerController.signal,
         })) {
+          if (event.type === "finished") {
+            const usageCostRecord = createUsageCostRecord({
+              feature: "change-review",
+              pricing,
+              response: event.response,
+            });
+            console.info(
+              JSON.stringify({
+                event: "ai.usage",
+                ...usageCostRecord,
+              }),
+            );
+          }
+
           await stream.writeSSE({
             event: event.type,
             data: JSON.stringify(event),

@@ -1,4 +1,7 @@
-import { createOpenAIStreamingGenerationAdapter } from "@changepilot/ai";
+import {
+  createOpenAIStreamingGenerationAdapter,
+  getOpenAIModelPricing,
+} from "@changepilot/ai";
 import { serve } from "@hono/node-server";
 import OpenAI from "openai";
 import { createApp } from "./routes/index.js";
@@ -17,13 +20,15 @@ const openAIClient = new OpenAI({
   apiKey: getRequiredEnvironmentVariable("OPENAI_API_KEY"),
 });
 
+const model = getRequiredEnvironmentVariable("OPENAI_MODEL");
 const adapter = createOpenAIStreamingGenerationAdapter({
-  model: getRequiredEnvironmentVariable("OPENAI_MODEL"),
+  model,
   createStream: (request, signal) =>
     openAIClient.responses.create(request, { signal }),
 });
+const pricing = getOpenAIModelPricing(model);
 
-const app = createApp(adapter);
+const app = createApp(adapter, pricing);
 
 serve(
   {
