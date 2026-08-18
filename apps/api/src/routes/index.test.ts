@@ -3,6 +3,7 @@ import type {
   GenerationStreamEvent,
   GenerationStreamOptions,
   ModelPricing,
+  MonotonicClock,
   StreamingGenerationAdapter,
 } from "@changepilot/ai";
 import { describe, expect, it, vi } from "vitest";
@@ -56,11 +57,27 @@ const createFakeAdapter = ({ events = [], error }: FakeAdapterOptions = {}) => {
   return { adapter, stream };
 };
 
+const createFakeClock = (timestamps: readonly number[]): MonotonicClock => {
+  let index = 0;
+
+  return () => {
+    const timestamp = timestamps[index];
+
+    if (timestamp === undefined) {
+      throw new Error("Fake clock has no timestamp available.");
+    }
+
+    index += 1;
+    return timestamp;
+  };
+};
+
 const postReview = (
   adapter: StreamingGenerationAdapter,
   changeDescription: string,
+  now?: MonotonicClock,
 ) =>
-  createApp(adapter, pricing).request("/reviews/stream", {
+  createApp(adapter, pricing, now).request("/reviews/stream", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -117,7 +134,7 @@ describe("API routes", () => {
     );
   });
 
-  it("logs usage once after multiple deltas and a finished event", async () => {
+  it("logs usage and latency once after multiple deltas and a finished event", async () => {
     const consoleInfo = vi
       .spyOn(console, "info")
       .mockImplementation(() => undefined);
@@ -135,14 +152,39 @@ describe("API routes", () => {
         createFinishedEvent(),
       ] satisfies readonly GenerationStreamEvent[];
       const { adapter } = createFakeAdapter({ events });
+      const now = createFakeClock([100, 125, 325, 725, 750]);
       const response = await postReview(
         adapter,
         "Increase session expiration.",
+        now,
       );
 
       await response.text();
 
-      expect(consoleInfo).toHaveBeenCalledTimes(1);
+      const logs = consoleInfo.mock.calls.map(([message]) =>
+        JSON.parse(String(message)),
+      );
+      const usageLogs = logs.filter((log) => log.event === "ai.usage");
+      const latencyLogs = logs.filter((log) => log.event === "ai.latency");
+
+      expect(usageLogs).toHaveLength(1);
+      expect(latencyLogs).toHaveLength(1);
+      expect(latencyLogs[0]).toMatchObject({
+        event: "ai.latency",
+        requestId: "resp_api_completed",
+        feature: "change-review",
+        model: "gpt-5.6-luna",
+        finishReason: "completed",
+        latency: {
+          timeToFirstTokenMs: 225,
+          timeToLastTokenMs: 625,
+          providerTimeToFirstTokenMs: 200,
+          providerTimeToLastTokenMs: 600,
+          providerDurationMs: 625,
+          applicationPreparationMs: 25,
+          totalDurationMs: 650,
+        },
+      });
     } finally {
       consoleInfo.mockRestore();
     }
@@ -157,14 +199,62 @@ describe("API routes", () => {
       const { adapter } = createFakeAdapter({
         events: [createFinishedEvent("max-output-tokens")],
       });
+      const now = createFakeClock([100, 125, 300]);
       const response = await postReview(
         adapter,
         "Increase session expiration.",
+        now,
       );
 
       await response.text();
 
-      expect(consoleInfo).toHaveBeenCalledTimes(1);
+      const logs = consoleInfo.mock.calls.map(([message]) =>
+        JSON.parse(String(message)),
+      );
+
+      expect(logs.filter((log) => log.event === "ai.usage")).toHaveLength(1);
+      expect(logs.filter((log) => log.event === "ai.latency")).toHaveLength(1);
+    } finally {
+      consoleInfo.mockRestore();
+    }
+  });
+
+  it("logs null token latency metrics when finished arrives without deltas", async () => {
+    const consoleInfo = vi
+      .spyOn(console, "info")
+      .mockImplementation(() => undefined);
+
+    try {
+      const { adapter } = createFakeAdapter({
+        events: [createFinishedEvent()],
+      });
+      const now = createFakeClock([100, 125, 300]);
+      const response = await postReview(
+        adapter,
+        "Increase session expiration.",
+        now,
+      );
+
+      await response.text();
+
+      const logs = consoleInfo.mock.calls.map(([message]) =>
+        JSON.parse(String(message)),
+      );
+      const latencyLogs = logs.filter((log) => log.event === "ai.latency");
+
+      expect(latencyLogs).toHaveLength(1);
+      expect(latencyLogs[0]).toMatchObject({
+        event: "ai.latency",
+        latency: {
+          timeToFirstTokenMs: null,
+          timeToLastTokenMs: null,
+          providerTimeToFirstTokenMs: null,
+          providerTimeToLastTokenMs: null,
+          providerDurationMs: 175,
+          applicationPreparationMs: 25,
+          totalDurationMs: 200,
+        },
+      });
     } finally {
       consoleInfo.mockRestore();
     }
@@ -184,9 +274,11 @@ describe("API routes", () => {
         events: [partialEvent],
         error: new Error("Provider stream failed."),
       });
+      const now = createFakeClock([100, 125, 325]);
       const response = await postReview(
         adapter,
         "Increase session expiration.",
+        now,
       );
 
       expect(response.status).toBe(200);
@@ -199,7 +291,12 @@ describe("API routes", () => {
           })}\n\n`,
         ].join(""),
       );
-      expect(consoleInfo).not.toHaveBeenCalled();
+      const logs = consoleInfo.mock.calls.map(([message]) =>
+        JSON.parse(String(message)),
+      );
+
+      expect(logs.filter((log) => log.event === "ai.usage")).toHaveLength(0);
+      expect(logs.filter((log) => log.event === "ai.latency")).toHaveLength(0);
     } finally {
       consoleInfo.mockRestore();
     }

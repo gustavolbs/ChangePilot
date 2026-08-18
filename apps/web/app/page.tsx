@@ -12,6 +12,7 @@ import {
 import { useReducer, useRef, useState } from "react";
 
 import {
+  calculateClientLatency,
   getReviewStreamErrorMessage,
   initialReviewGenerationState,
   readReviewStream,
@@ -28,6 +29,9 @@ export default function Home() {
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const fetchData = async () => {
+    const requestStartedAtMs = performance.now();
+    let firstTokenAtMs: number | null = null;
+    let lastTokenAtMs: number | null = null;
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
@@ -57,7 +61,35 @@ export default function Home() {
         throw new Error("The response does not contain a stream.");
       }
 
-      await readReviewStream(response, (event) => dispatch(event));
+      await readReviewStream(response, (event) => {
+        const eventReceivedAtMs = performance.now();
+
+        if (event.type === "text-delta") {
+          firstTokenAtMs ??= eventReceivedAtMs;
+          lastTokenAtMs = eventReceivedAtMs;
+        }
+
+        if (event.type === "finished") {
+          const latency = calculateClientLatency({
+            requestStartedAtMs,
+            firstTokenAtMs,
+            lastTokenAtMs,
+            finishedAtMs: eventReceivedAtMs,
+          });
+
+          console.info(
+            JSON.stringify({
+              event: "ui.latency",
+              feature: "change-review",
+              requestId: event.requestId,
+              finishReason: event.finishReason,
+              latency,
+            }),
+          );
+        }
+
+        dispatch(event);
+      });
     } catch (error: unknown) {
       if (error instanceof DOMException && error.name === "AbortError") {
         dispatch({ type: "cancelled" });

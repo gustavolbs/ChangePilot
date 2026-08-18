@@ -137,23 +137,23 @@
 
 ## 01.13 — Token Usage e Custos
 
-- [ ] Capturar input tokens
-- [ ] Capturar output tokens
-- [ ] Calcular custo estimado
-- [ ] Custo por request
-- [ ] Custo por feature
-- [ ] Modelos caros vs baratos
-- [ ] Criar primitive de usage/cost tracking
+- [x] Capturar input tokens
+- [x] Capturar output tokens
+- [x] Calcular custo estimado
+- [x] Custo por request
+- [x] Custo por feature
+- [x] Modelos caros vs baratos
+- [x] Criar primitive de usage/cost tracking
 
 ## 01.14 — Latência
 
-- [ ] Time to First Token
-- [ ] Time to Last Token
-- [ ] Latência do provider
-- [ ] Latência de rede
-- [ ] Latência da aplicação
-- [ ] Instrumentação básica
-- [ ] Trade-off custo × qualidade × latência
+- [x] Time to First Token
+- [x] Time to Last Token
+- [x] Latência do provider
+- [x] Latência de rede
+- [x] Latência da aplicação
+- [x] Instrumentação básica
+- [x] Trade-off custo × qualidade × latência
 
 ## 01.15 — Errors, Timeout e Cancellation
 

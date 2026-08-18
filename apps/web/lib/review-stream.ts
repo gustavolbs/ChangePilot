@@ -17,6 +17,7 @@ export type ReviewStreamEvent =
     }>
   | Readonly<{
       type: "finished";
+      requestId: string;
       finishReason: ReviewFinishReason;
     }>
   | Readonly<{
@@ -129,13 +130,16 @@ export const parseReviewStreamEvent = (data: string): ReviewStreamEvent => {
     case "finished": {
       if (
         !isRecord(value.response) ||
-        !isReviewFinishReason(value.response.finishReason)
+        !isReviewFinishReason(value.response.finishReason) ||
+        typeof value.response.id !== "string" ||
+        value.response.id.trim().length === 0
       ) {
         throw new Error("Invalid finished event.");
       }
 
       return {
         type: "finished",
+        requestId: value.response.id,
         finishReason: value.response.finishReason,
       };
     }
@@ -218,3 +222,32 @@ export const getReviewStreamErrorMessage = (error: unknown): string =>
   error instanceof Error
     ? error.message
     : "An unknown streaming error occurred.";
+
+export type ClientLatencyTimestamps = Readonly<{
+  requestStartedAtMs: number;
+  firstTokenAtMs: number | null;
+  lastTokenAtMs: number | null;
+  finishedAtMs: number;
+}>;
+
+export type ClientLatency = Readonly<{
+  timeToFirstTokenMs: number | null;
+  timeToLastTokenMs: number | null;
+  totalDurationMs: number;
+}>;
+
+export const calculateClientLatency = (
+  timestamps: ClientLatencyTimestamps,
+): ClientLatency => {
+  return {
+    timeToFirstTokenMs:
+      timestamps.firstTokenAtMs !== null
+        ? timestamps.firstTokenAtMs - timestamps.requestStartedAtMs
+        : null,
+    timeToLastTokenMs:
+      timestamps.lastTokenAtMs !== null
+        ? timestamps.lastTokenAtMs - timestamps.requestStartedAtMs
+        : null,
+    totalDurationMs: timestamps.finishedAtMs - timestamps.requestStartedAtMs,
+  };
+};

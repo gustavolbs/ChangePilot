@@ -5,6 +5,8 @@ import {
   type GenerationRequest,
   type StreamingGenerationAdapter,
   createUsageCostRecord,
+  type MonotonicClock,
+  createGenerationLatencyRecord,
 } from "@changepilot/ai";
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
@@ -12,10 +14,12 @@ import { streamSSE } from "hono/streaming";
 export function createReviewStreamRoutes(
   adapter: StreamingGenerationAdapter,
   pricing: ModelPricing,
+  now: MonotonicClock,
 ) {
   const routes = new Hono();
 
   routes.post("/stream", async (c) => {
+    const requestStartedAtMs = now();
     const body: unknown = await c.req.json().catch(() => undefined);
 
     if (
@@ -56,10 +60,16 @@ export function createReviewStreamRoutes(
         providerController.abort();
       });
 
+      const providerStartedAtMs = now();
+      let firstTokenAtMs: number | null = null;
+      let lastTokenAtMs: number | null = null;
+
       try {
         for await (const event of adapter.stream(request, {
           signal: providerController.signal,
         })) {
+          const eventReceivedAtMs = now();
+
           if (event.type === "finished") {
             const usageCostRecord = createUsageCostRecord({
               feature: "change-review",
@@ -72,6 +82,29 @@ export function createReviewStreamRoutes(
                 ...usageCostRecord,
               }),
             );
+
+            const latencyRecord = createGenerationLatencyRecord({
+              feature: "change-review",
+              response: event.response,
+              timestamps: {
+                requestStartedAtMs,
+                providerStartedAtMs,
+                firstTokenAtMs,
+                lastTokenAtMs,
+                finishedAtMs: eventReceivedAtMs,
+              },
+            });
+            console.info(
+              JSON.stringify({
+                event: "ai.latency",
+                ...latencyRecord,
+              }),
+            );
+          }
+
+          if (event.type === "text-delta") {
+            firstTokenAtMs ??= eventReceivedAtMs;
+            lastTokenAtMs = eventReceivedAtMs;
           }
 
           await stream.writeSSE({
