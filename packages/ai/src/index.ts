@@ -8,3 +8,14 @@ export type {
 export { createGenerationParameters } from "./labs/generation-parameters.js";
 export { createMessageSequence } from "./labs/message-sequence.js";
 export { createOpenAIStreamingGenerationAdapter } from "./providers/openai/openai-streaming-generation-adapter.js";
+
+export { getOpenAIModelPricing } from "./providers/openai/model-pricing.js";
+export {
+  type AiFeature,
+  type CreateUsageCostRecordInput,
+  type GenerationCost,
+  type ModelPricing,
+  type UsageCostRecord,
+  calculateGenerationCost,
+  createUsageCostRecord,
+} from "./usage/generation-cost.js";
