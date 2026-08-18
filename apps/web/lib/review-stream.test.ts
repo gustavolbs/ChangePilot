@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  calculateClientLatency,
   getReviewStreamErrorMessage,
   initialReviewGenerationState,
+  parseReviewStreamEvent,
   readReviewStream,
   reduceReviewGeneration,
   type ReviewGenerationState,
@@ -48,6 +50,7 @@ describe("review stream", () => {
       createFrame({
         type: "finished",
         response: {
+          id: "resp_web_123",
           finishReason: "completed",
         },
       }),
@@ -67,6 +70,7 @@ describe("review stream", () => {
       },
       {
         type: "finished",
+        requestId: "resp_web_123",
         finishReason: "completed",
       },
     ]);
@@ -75,6 +79,7 @@ describe("review stream", () => {
   it("moves the generation to completed after a completed response", () => {
     const state = reduceReviewGeneration(startWithPartialOutput(), {
       type: "finished",
+      requestId: "resp_web_123",
       finishReason: "completed",
     });
 
@@ -107,6 +112,7 @@ describe("review stream", () => {
           createFrame({
             type: "finished",
             response: {
+              id: `resp_web_${finishReason}`,
               finishReason,
             },
           }),
@@ -129,6 +135,7 @@ describe("review stream", () => {
       createFrame({
         type: "finished",
         response: {
+          id: "resp_web_unknown",
           finishReason: "unknown",
         },
       }),
@@ -137,6 +144,63 @@ describe("review stream", () => {
     await expect(readReviewStream(response, () => undefined)).rejects.toThrow(
       "Invalid finished event.",
     );
+  });
+
+  it("rejects a finished event without a response ID", () => {
+    expect(() =>
+      parseReviewStreamEvent(
+        JSON.stringify({
+          type: "finished",
+          response: {
+            finishReason: "completed",
+          },
+        }),
+      ),
+    ).toThrow("Invalid finished event.");
+  });
+
+  it("rejects a finished event with an empty response ID", () => {
+    expect(() =>
+      parseReviewStreamEvent(
+        JSON.stringify({
+          type: "finished",
+          response: {
+            id: "   ",
+            finishReason: "completed",
+          },
+        }),
+      ),
+    ).toThrow("Invalid finished event.");
+  });
+
+  it("calculates client latency from the request and token timestamps", () => {
+    expect(
+      calculateClientLatency({
+        requestStartedAtMs: 100,
+        firstTokenAtMs: 350,
+        lastTokenAtMs: 700,
+        finishedAtMs: 725,
+      }),
+    ).toEqual({
+      timeToFirstTokenMs: 250,
+      timeToLastTokenMs: 600,
+      totalDurationMs: 625,
+    });
+  });
+
+  it("preserves null client token metrics when no delta was received", () => {
+    expect(
+      calculateClientLatency({
+        requestStartedAtMs: 100,
+        firstTokenAtMs: null,
+        lastTokenAtMs: null,
+        finishedAtMs: 300,
+      }),
+    ).toEqual({
+      timeToFirstTokenMs: null,
+      timeToLastTokenMs: null,
+      totalDurationMs: 200,
+    });
   });
 
   it("moves Stop to cancelled without removing partial output", () => {
