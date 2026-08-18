@@ -1,4 +1,8 @@
-import type { ModelPricing, StreamingGenerationAdapter } from "@changepilot/ai";
+import type {
+  ModelPricing,
+  MonotonicClock,
+  StreamingGenerationAdapter,
+} from "@changepilot/ai";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { createReviewStreamRoutes } from "./review-stream.js";
@@ -6,6 +10,7 @@ import { createReviewStreamRoutes } from "./review-stream.js";
 export function createApp(
   adapter: StreamingGenerationAdapter,
   pricing: ModelPricing,
+  now: MonotonicClock = () => performance.now(),
 ) {
   const app = new Hono();
 
@@ -25,7 +30,7 @@ export function createApp(
     }),
   );
 
-  app.route("/reviews", createReviewStreamRoutes(adapter, pricing));
+  app.route("/reviews", createReviewStreamRoutes(adapter, pricing, now));
 
   return app;
 }

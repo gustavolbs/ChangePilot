@@ -28,18 +28,22 @@ export const calculateGenerationLatency = (
   timestamps: GenerationLatencyTimestamps,
 ): GenerationLatency => {
   return {
-    timeToFirstTokenMs: timestamps.firstTokenAtMs
-      ? timestamps.firstTokenAtMs - timestamps.requestStartedAtMs
-      : null,
-    timeToLastTokenMs: timestamps.lastTokenAtMs
-      ? timestamps.lastTokenAtMs - timestamps.requestStartedAtMs
-      : null,
-    providerTimeToFirstTokenMs: timestamps.firstTokenAtMs
-      ? timestamps.firstTokenAtMs - timestamps.providerStartedAtMs
-      : null,
-    providerTimeToLastTokenMs: timestamps.lastTokenAtMs
-      ? timestamps.lastTokenAtMs - timestamps.providerStartedAtMs
-      : null,
+    timeToFirstTokenMs:
+      timestamps.firstTokenAtMs !== null
+        ? timestamps.firstTokenAtMs - timestamps.requestStartedAtMs
+        : null,
+    timeToLastTokenMs:
+      timestamps.lastTokenAtMs !== null
+        ? timestamps.lastTokenAtMs - timestamps.requestStartedAtMs
+        : null,
+    providerTimeToFirstTokenMs:
+      timestamps.firstTokenAtMs !== null
+        ? timestamps.firstTokenAtMs - timestamps.providerStartedAtMs
+        : null,
+    providerTimeToLastTokenMs:
+      timestamps.lastTokenAtMs !== null
+        ? timestamps.lastTokenAtMs - timestamps.providerStartedAtMs
+        : null,
     providerDurationMs:
       timestamps.finishedAtMs - timestamps.providerStartedAtMs,
     applicationPreparationMs:
