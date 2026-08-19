@@ -1,10 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { GenerationError } from "./generation-error.js";
 import {
   calculateRetryDelayMs,
   parseRetryAfterMs,
   shouldRetryGeneration,
+  sleepForRetry,
   type RetryPolicy,
 } from "./generation-retry.js";
 
@@ -121,5 +122,22 @@ describe("generation retry", () => {
         policy,
       }),
     ).toBe(false);
+  });
+
+  it("cancels the real retry sleep when the signal is aborted", async () => {
+    vi.useFakeTimers();
+
+    try {
+      const controller = new AbortController();
+      const sleeping = sleepForRetry(5_000, controller.signal);
+
+      controller.abort();
+
+      await expect(sleeping).rejects.toMatchObject({
+        name: "AbortError",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

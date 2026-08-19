@@ -448,6 +448,41 @@ describe("createOpenAIStreamingGenerationAdapter", () => {
     expect(events.filter((event) => event.type === "finished")).toHaveLength(1);
   });
 
+  it("uses the OpenAI Retry-After header as the minimum retry delay", async () => {
+    const sleep = vi.fn(async () => undefined);
+    const random = () => 0.5;
+    const createStream = createStreamFake([
+      createTextDelta("Review completed.", 1),
+      createCompleted(createProviderResponse(), 2),
+    ]);
+    createStream.mockRejectedValueOnce({
+      status: 429,
+      message: "Too many requests.",
+      headers: new Headers({
+        "retry-after": "2",
+      }),
+    });
+    const adapter = createOpenAIStreamingGenerationAdapter({
+      model,
+      createStream,
+      sleep,
+      random,
+      retryPolicy: {
+        maxAttempts: 3,
+        baseDelayMs: 250,
+        maxDelayMs: 2_000,
+        maxTotalDelayMs: 5_000,
+      },
+    });
+
+    const events = await collectEvents(adapter.stream(request));
+
+    expect(sleep).toHaveBeenCalledTimes(1);
+    expect(sleep).toHaveBeenCalledWith(2_125, undefined);
+    expect(createStream).toHaveBeenCalledTimes(2);
+    expect(events.filter((event) => event.type === "finished")).toHaveLength(1);
+  });
+
   it("retries two temporary failures before succeeding", async () => {
     const sleep = vi.fn(async () => undefined);
     const random = () => 0.5;
