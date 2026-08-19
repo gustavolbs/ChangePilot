@@ -96,7 +96,13 @@ const mapOpenAIError = (
   error: unknown,
   signal?: AbortSignal,
 ): GenerationError => {
-  if (signal?.aborted) {
+  const isAbortError =
+    typeof error === "object" &&
+    error !== null &&
+    "name" in error &&
+    error.name === "AbortError";
+
+  if (signal?.aborted || isAbortError) {
     return new GenerationError({
       code: "cancelled",
       message: error instanceof Error ? error.message : "Generation cancelled.",

@@ -389,4 +389,19 @@ describe("createOpenAIStreamingGenerationAdapter", () => {
       retryable: false,
     });
   });
+
+  it("maps an AbortError to cancelled without an aborted signal", async () => {
+    const adapter = createOpenAIStreamingGenerationAdapter({
+      model,
+      createStream: createRejectedStreamFake({
+        name: "AbortError",
+        message: "Request aborted.",
+      }),
+    });
+
+    await expect(collectEvents(adapter.stream(request))).rejects.toMatchObject({
+      code: "cancelled",
+      retryable: false,
+    });
+  });
 });
