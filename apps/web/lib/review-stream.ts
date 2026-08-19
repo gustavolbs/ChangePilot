@@ -22,7 +22,9 @@ export type ReviewStreamEvent =
     }>
   | Readonly<{
       type: "error";
+      code: ReviewStreamErrorCode;
       message: string;
+      retryable: boolean;
     }>;
 
 export type ReviewGenerationState = Readonly<{
@@ -145,13 +147,19 @@ export const parseReviewStreamEvent = (data: string): ReviewStreamEvent => {
     }
 
     case "error":
-      if (typeof value.message !== "string") {
+      if (
+        !isReviewStreamErrorCode(value.code) ||
+        typeof value.message !== "string" ||
+        typeof value.retryable !== "boolean"
+      ) {
         throw new Error("Invalid error event.");
       }
 
       return {
         type: "error",
+        code: value.code,
         message: value.message,
+        retryable: value.retryable,
       };
 
     default:
@@ -251,3 +259,27 @@ export const calculateClientLatency = (
     totalDurationMs: timestamps.finishedAtMs - timestamps.requestStartedAtMs,
   };
 };
+
+export type ReviewStreamErrorCode =
+  | "invalid-request"
+  | "authentication"
+  | "permission-denied"
+  | "rate-limit"
+  | "quota-exceeded"
+  | "provider-unavailable"
+  | "timeout"
+  | "cancelled"
+  | "unknown";
+
+const isReviewStreamErrorCode = (
+  value: unknown,
+): value is ReviewStreamErrorCode =>
+  value === "invalid-request" ||
+  value === "authentication" ||
+  value === "permission-denied" ||
+  value === "rate-limit" ||
+  value === "quota-exceeded" ||
+  value === "provider-unavailable" ||
+  value === "timeout" ||
+  value === "cancelled" ||
+  value === "unknown";
