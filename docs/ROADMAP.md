@@ -167,14 +167,14 @@
 
 ## 01.16 — Retry e Rate Limiting
 
-- [ ] Quando fazer retry
-- [ ] Quando não fazer retry
-- [ ] Exponential backoff
-- [ ] Jitter
-- [ ] Rate limits
-- [ ] Retry-After
-- [ ] Idempotência
-- [ ] Retry budgets
+- [x] Quando fazer retry
+- [x] Quando não fazer retry
+- [x] Exponential backoff
+- [x] Jitter
+- [x] Rate limits
+- [x] Retry-After
+- [x] Idempotência
+- [x] Retry budgets
 
 ## 01.17 — Provider Abstraction
 

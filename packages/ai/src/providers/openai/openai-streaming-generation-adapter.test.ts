@@ -5,7 +5,9 @@ import type {
 } from "openai/resources/responses/responses.mjs";
 import { describe, expect, it, vi } from "vitest";
 
+import { GenerationError } from "../../generation/generation-error.js";
 import type { GenerationRequest } from "../../generation/generation.js";
+import type { RetryPolicy } from "../../generation/generation-retry.js";
 import type { GenerationStreamEvent } from "../../generation/streaming-generation.js";
 import { createGenerationParameters } from "../../labs/generation-parameters.js";
 import { createMessageSequence } from "../../labs/message-sequence.js";
@@ -22,6 +24,13 @@ type OpenAIStreamingSignal = Parameters<
 >[1];
 
 const model = "gpt-5.1";
+
+const noRetryPolicy: RetryPolicy = {
+  maxAttempts: 1,
+  baseDelayMs: 250,
+  maxDelayMs: 2_000,
+  maxTotalDelayMs: 5_000,
+};
 
 const request: GenerationRequest = {
   messages: createMessageSequence(
@@ -304,6 +313,7 @@ describe("createOpenAIStreamingGenerationAdapter", () => {
     const adapter = createOpenAIStreamingGenerationAdapter({
       model,
       createStream: createStreamFake([createFailed()]),
+      retryPolicy: noRetryPolicy,
     });
 
     await expect(collectEvents(adapter.stream(request))).rejects.toMatchObject({
@@ -316,6 +326,7 @@ describe("createOpenAIStreamingGenerationAdapter", () => {
     const adapter = createOpenAIStreamingGenerationAdapter({
       model,
       createStream: createStreamFake([createErrorEvent()]),
+      retryPolicy: noRetryPolicy,
     });
 
     await expect(collectEvents(adapter.stream(request))).rejects.toMatchObject({
@@ -346,6 +357,7 @@ describe("createOpenAIStreamingGenerationAdapter", () => {
         status: 429,
         message: "Too many requests.",
       }),
+      retryPolicy: noRetryPolicy,
     });
 
     await expect(collectEvents(adapter.stream(request))).rejects.toMatchObject({
@@ -403,5 +415,186 @@ describe("createOpenAIStreamingGenerationAdapter", () => {
       code: "cancelled",
       retryable: false,
     });
+  });
+
+  it("retries a temporary failure before emitting text", async () => {
+    const sleep = vi.fn(async () => undefined);
+    const random = () => 0.5;
+    const createStream = createStreamFake([
+      createTextDelta("Review completed.", 1),
+      createCompleted(createProviderResponse(), 2),
+    ]);
+    createStream.mockRejectedValueOnce({
+      status: 429,
+      message: "Too many requests.",
+    });
+    const adapter = createOpenAIStreamingGenerationAdapter({
+      model,
+      createStream,
+      sleep,
+      random,
+    });
+
+    const events = await collectEvents(adapter.stream(request));
+
+    expect(createStream).toHaveBeenCalledTimes(2);
+    expect(sleep).toHaveBeenCalledTimes(1);
+    expect(events.filter((event) => event.type === "text-delta")).toEqual([
+      {
+        type: "text-delta",
+        delta: "Review completed.",
+      },
+    ]);
+    expect(events.filter((event) => event.type === "finished")).toHaveLength(1);
+  });
+
+  it("retries two temporary failures before succeeding", async () => {
+    const sleep = vi.fn(async () => undefined);
+    const random = () => 0.5;
+    const createStream = createStreamFake([
+      createTextDelta("Review completed.", 1),
+      createCompleted(createProviderResponse(), 2),
+    ]);
+    createStream
+      .mockRejectedValueOnce({
+        status: 500,
+        message: "Internal server error.",
+      })
+      .mockRejectedValueOnce({
+        name: "APIConnectionError",
+        message: "Connection failed.",
+      });
+    const adapter = createOpenAIStreamingGenerationAdapter({
+      model,
+      createStream,
+      sleep,
+      random,
+    });
+
+    const events = await collectEvents(adapter.stream(request));
+
+    expect(createStream).toHaveBeenCalledTimes(3);
+    expect(sleep).toHaveBeenCalledTimes(2);
+    expect(events.filter((event) => event.type === "finished")).toHaveLength(1);
+  });
+
+  it("does not retry a provider failure after emitting a delta", async () => {
+    const sleep = vi.fn(async () => undefined);
+    const random = () => 0.5;
+    const createStream = createStreamFake([
+      createTextDelta("Partial review.", 1),
+      createFailed(),
+    ]);
+    const adapter = createOpenAIStreamingGenerationAdapter({
+      model,
+      createStream,
+      sleep,
+      random,
+    });
+    let thrownError: unknown;
+
+    try {
+      await collectEvents(adapter.stream(request));
+    } catch (error) {
+      thrownError = error;
+    }
+
+    expect(createStream).toHaveBeenCalledTimes(1);
+    expect(sleep).not.toHaveBeenCalled();
+    expect(thrownError).toBeInstanceOf(GenerationError);
+    expect(thrownError).toMatchObject({
+      code: "provider-unavailable",
+      retryable: true,
+    });
+  });
+
+  it("does not retry a non-retryable authentication error", async () => {
+    const sleep = vi.fn(async () => undefined);
+    const random = () => 0.5;
+    const createStream = createRejectedStreamFake({
+      status: 401,
+      message: "Invalid API key.",
+    });
+    const adapter = createOpenAIStreamingGenerationAdapter({
+      model,
+      createStream,
+      sleep,
+      random,
+    });
+
+    await expect(collectEvents(adapter.stream(request))).rejects.toMatchObject({
+      code: "authentication",
+      retryable: false,
+    });
+    expect(createStream).toHaveBeenCalledTimes(1);
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it("does not retry when Retry-After exceeds the total delay budget", async () => {
+    const sleep = vi.fn(async () => undefined);
+    const random = () => 0.5;
+    const createStream = createRejectedStreamFake(
+      new GenerationError({
+        code: "rate-limit",
+        message: "Too many requests.",
+        retryable: true,
+        retryAfterMs: 10_000,
+      }),
+    );
+    const adapter = createOpenAIStreamingGenerationAdapter({
+      model,
+      createStream,
+      sleep,
+      random,
+      retryPolicy: {
+        maxAttempts: 3,
+        baseDelayMs: 250,
+        maxDelayMs: 2_000,
+        maxTotalDelayMs: 5_000,
+      },
+    });
+
+    await expect(collectEvents(adapter.stream(request))).rejects.toMatchObject({
+      code: "rate-limit",
+      retryable: true,
+      retryAfterMs: 10_000,
+    });
+    expect(createStream).toHaveBeenCalledTimes(1);
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it("does not start another attempt when retry sleep is cancelled", async () => {
+    const controller = new AbortController();
+    const sleep = vi.fn(async () => {
+      throw {
+        name: "AbortError",
+        message: "Request aborted.",
+      };
+    });
+    const random = () => 0.5;
+    const createStream = createRejectedStreamFake({
+      status: 500,
+      message: "Internal server error.",
+    });
+    const adapter = createOpenAIStreamingGenerationAdapter({
+      model,
+      createStream,
+      sleep,
+      random,
+    });
+
+    await expect(
+      collectEvents(
+        adapter.stream(request, {
+          signal: controller.signal,
+        }),
+      ),
+    ).rejects.toMatchObject({
+      code: "cancelled",
+      retryable: false,
+    });
+    expect(createStream).toHaveBeenCalledTimes(1);
+    expect(sleep).toHaveBeenCalledTimes(1);
+    expect(sleep).toHaveBeenCalledWith(expect.any(Number), controller.signal);
   });
 });

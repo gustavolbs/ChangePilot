@@ -6,6 +6,15 @@ import { GenerationError } from "../../generation/generation-error.js";
 import type { StreamingGenerationAdapter } from "../../generation/streaming-generation.js";
 import { mapRequest, mapResponse } from "./mappers.js";
 import { validateGenerationRequest, validateModel } from "./validators.js";
+import {
+  calculateRetryDelayMs,
+  defaultGenerationRetryPolicy,
+  parseRetryAfterMs,
+  shouldRetryGeneration,
+  sleepForRetry,
+  type RetryPolicy,
+  type RetrySleeper,
+} from "../../generation/generation-retry.js";
 
 export type OpenAIStreamingGenerationAdapterOptions = Readonly<{
   model: string;
@@ -13,12 +22,18 @@ export type OpenAIStreamingGenerationAdapterOptions = Readonly<{
     request: ResponseCreateParamsStreaming,
     signal?: AbortSignal,
   ) => Promise<AsyncIterable<ResponseStreamEvent>>;
+  retryPolicy?: RetryPolicy;
+  sleep?: RetrySleeper;
+  random?: () => number;
 }>;
 
 export function createOpenAIStreamingGenerationAdapter(
   options: OpenAIStreamingGenerationAdapterOptions,
 ): StreamingGenerationAdapter {
   validateModel(options.model);
+  const retryPolicy = options.retryPolicy ?? defaultGenerationRetryPolicy;
+  const sleep = options.sleep ?? sleepForRetry;
+  const random = options.random ?? Math.random;
 
   return {
     async *stream(request, streamOptions) {
@@ -28,65 +43,103 @@ export function createOpenAIStreamingGenerationAdapter(
         model: options.model,
         request,
       });
+      let failedAttempt = 1;
+      let totalDelayMs = 0;
+      let hasEmittedText = false;
 
-      try {
-        const openAIStream = await options.createStream(
-          {
-            ...openAIRequest,
-            stream: true,
-          },
-          streamOptions?.signal,
-        );
+      while (true) {
+        try {
+          const openAIStream = await options.createStream(
+            {
+              ...openAIRequest,
+              stream: true,
+            },
+            streamOptions?.signal,
+          );
 
-        let outputText = "";
-        for await (const event of openAIStream) {
-          if (event.type === "response.output_text.delta") {
-            outputText += event.delta;
-            yield {
-              type: "text-delta",
-              delta: event.delta,
-            };
+          let outputText = "";
+          for await (const event of openAIStream) {
+            if (event.type === "response.output_text.delta") {
+              hasEmittedText = true;
+              outputText += event.delta;
+              yield {
+                type: "text-delta",
+                delta: event.delta,
+              };
+            }
+
+            if (
+              event.type === "response.completed" ||
+              event.type === "response.incomplete"
+            ) {
+              yield {
+                type: "finished",
+                response: mapResponse({
+                  ...event.response,
+                  output_text: outputText,
+                }),
+              };
+
+              return;
+            }
+
+            if (event.type === "response.failed") {
+              throw new GenerationError({
+                code: "provider-unavailable",
+                message:
+                  event.response.error?.message ?? "OpenAI response failed.",
+                retryable: true,
+              });
+            }
+            if (event.type === "error") {
+              throw new GenerationError({
+                code: "provider-unavailable",
+                message: event.message ?? "An OpenAI error occurred.",
+                retryable: true,
+              });
+            }
           }
 
-          if (
-            event.type === "response.completed" ||
-            event.type === "response.incomplete"
-          ) {
-            yield {
-              type: "finished",
-              response: mapResponse({
-                ...event.response,
-                output_text: outputText,
-              }),
-            };
+          throw new GenerationError({
+            code: "provider-unavailable",
+            message: "OpenAI stream ended without a terminal response.",
+            retryable: true,
+          });
+        } catch (error: unknown) {
+          const generationError = mapOpenAIError(error, streamOptions?.signal);
 
-            return;
+          const canRetry = shouldRetryGeneration({
+            error: generationError,
+            failedAttempt,
+            hasEmittedText,
+            policy: retryPolicy,
+            signal: streamOptions?.signal,
+          });
+
+          if (!canRetry) {
+            throw generationError;
           }
 
-          if (event.type === "response.failed") {
-            throw new GenerationError({
-              code: "provider-unavailable",
-              message:
-                event.response.error?.message ?? "OpenAI response failed.",
-              retryable: true,
-            });
+          const delayMs = calculateRetryDelayMs({
+            retryNumber: failedAttempt,
+            retryAfterMs: generationError.retryAfterMs,
+            policy: retryPolicy,
+            random,
+          });
+
+          if (totalDelayMs + delayMs > retryPolicy.maxTotalDelayMs) {
+            throw generationError;
           }
-          if (event.type === "error") {
-            throw new GenerationError({
-              code: "provider-unavailable",
-              message: event.message ?? "An OpenAI error occurred.",
-              retryable: true,
-            });
+
+          try {
+            await sleep(delayMs, streamOptions?.signal);
+          } catch (sleepError) {
+            throw mapOpenAIError(sleepError, streamOptions?.signal);
           }
+
+          totalDelayMs += delayMs;
+          failedAttempt += 1;
         }
-
-        throw new GenerationError({
-          code: "provider-unavailable",
-          message: "OpenAI stream ended without a terminal response.",
-          retryable: true,
-        });
-      } catch (error: unknown) {
-        throw mapOpenAIError(error, streamOptions?.signal);
       }
     },
   };
@@ -187,8 +240,9 @@ const mapOpenAIError = (
 
     return new GenerationError({
       code: "rate-limit",
-      message,
+      message: "OpenAI rate limit reached.",
       retryable: true,
+      retryAfterMs: parseRetryAfterMs(readRetryAfterHeader(error)),
       cause: error,
     });
   }
@@ -211,4 +265,35 @@ const mapOpenAIError = (
     retryable: false,
     cause: error,
   });
+};
+
+const readRetryAfterHeader = (error: unknown): string | undefined => {
+  if (typeof error !== "object" || error === null || !("headers" in error)) {
+    return undefined;
+  }
+
+  const headers = error.headers;
+
+  if (
+    typeof headers === "object" &&
+    headers !== null &&
+    "get" in headers &&
+    typeof headers.get === "function"
+  ) {
+    const value = (
+      headers as {
+        get(name: string): unknown;
+      }
+    ).get("retry-after");
+
+    return typeof value === "string" ? value : undefined;
+  }
+
+  if (typeof headers === "object" && headers !== null) {
+    const value = (headers as Record<string, unknown>)["retry-after"];
+
+    return typeof value === "string" ? value : undefined;
+  }
+
+  return undefined;
 };
