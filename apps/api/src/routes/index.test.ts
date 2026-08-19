@@ -77,7 +77,7 @@ const postReview = (
   changeDescription: string,
   now?: MonotonicClock,
 ) =>
-  createApp(adapter, pricing, now).request("/reviews/stream", {
+  createApp(adapter, pricing, { now }).request("/reviews/stream", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

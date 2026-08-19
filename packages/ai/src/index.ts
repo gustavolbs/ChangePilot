@@ -31,7 +31,7 @@ export {
 } from "./observability/generation-latency.js";
 
 export {
-  type GenerationError,
+  GenerationError,
   type GenerationErrorCode,
   type GenerationErrorOptions,
   normalizeGenerationError,
