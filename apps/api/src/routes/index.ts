@@ -7,11 +7,18 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { createReviewStreamRoutes } from "./review-stream.js";
 
+type CreateAppOptions = Readonly<{
+  now?: MonotonicClock;
+  generationTimeoutMs?: number;
+}>;
+
 export function createApp(
   adapter: StreamingGenerationAdapter,
   pricing: ModelPricing,
-  now: MonotonicClock = () => performance.now(),
+  options: CreateAppOptions = {},
 ) {
+  const now = options.now ?? (() => performance.now());
+  const generationTimeoutMs = options.generationTimeoutMs ?? 30_000;
   const app = new Hono();
 
   app.get("/", (c) => c.text("Hello Hono!"));
@@ -30,7 +37,10 @@ export function createApp(
     }),
   );
 
-  app.route("/reviews", createReviewStreamRoutes(adapter, pricing, now));
+  app.route(
+    "/reviews",
+    createReviewStreamRoutes(adapter, pricing, now, generationTimeoutMs),
+  );
 
   return app;
 }

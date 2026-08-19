@@ -18,6 +18,7 @@ const getRequiredEnvironmentVariable = (name: string): string => {
 
 const openAIClient = new OpenAI({
   apiKey: getRequiredEnvironmentVariable("OPENAI_API_KEY"),
+  maxRetries: 0,
 });
 
 const model = getRequiredEnvironmentVariable("OPENAI_MODEL");
@@ -27,9 +28,25 @@ const adapter = createOpenAIStreamingGenerationAdapter({
     openAIClient.responses.create(request, { signal }),
 });
 const pricing = getOpenAIModelPricing(model);
+const getGenerationTimeoutMs = (): number => {
+  const rawValue = process.env.AI_GENERATION_TIMEOUT_MS;
 
-const app = createApp(adapter, pricing);
+  if (rawValue === undefined) {
+    return 30_000;
+  }
 
+  const value = Number(rawValue);
+
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error("AI_GENERATION_TIMEOUT_MS must be a positive integer.");
+  }
+
+  return value;
+};
+
+const app = createApp(adapter, pricing, {
+  generationTimeoutMs: getGenerationTimeoutMs(),
+});
 serve(
   {
     fetch: app.fetch,

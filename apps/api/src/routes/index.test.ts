@@ -1,10 +1,11 @@
-import type {
-  GenerationRequest,
-  GenerationStreamEvent,
-  GenerationStreamOptions,
-  ModelPricing,
-  MonotonicClock,
-  StreamingGenerationAdapter,
+import {
+  GenerationError,
+  type GenerationRequest,
+  type GenerationStreamEvent,
+  type GenerationStreamOptions,
+  type ModelPricing,
+  type MonotonicClock,
+  type StreamingGenerationAdapter,
 } from "@changepilot/ai";
 import { describe, expect, it, vi } from "vitest";
 
@@ -57,6 +58,33 @@ const createFakeAdapter = ({ events = [], error }: FakeAdapterOptions = {}) => {
   return { adapter, stream };
 };
 
+const createAbortAwareAdapter = () => {
+  const stream = vi.fn(
+    (_request: GenerationRequest, options?: GenerationStreamOptions) =>
+      (async function* (): AsyncIterable<GenerationStreamEvent> {
+        const signal = options?.signal;
+
+        if (!signal) {
+          throw new Error("Adapter did not receive an AbortSignal.");
+        }
+
+        await new Promise<void>((_resolve, reject) => {
+          const rejectAsAborted = () => reject(new Error("Adapter aborted."));
+
+          if (signal.aborted) {
+            rejectAsAborted();
+            return;
+          }
+
+          signal.addEventListener("abort", rejectAsAborted, { once: true });
+        });
+      })(),
+  );
+  const adapter: StreamingGenerationAdapter = { stream };
+
+  return { adapter, stream };
+};
+
 const createFakeClock = (timestamps: readonly number[]): MonotonicClock => {
   let index = 0;
 
@@ -75,9 +103,12 @@ const createFakeClock = (timestamps: readonly number[]): MonotonicClock => {
 const postReview = (
   adapter: StreamingGenerationAdapter,
   changeDescription: string,
-  now?: MonotonicClock,
+  options: Readonly<{
+    now?: MonotonicClock;
+    generationTimeoutMs?: number;
+  }> = {},
 ) =>
-  createApp(adapter, pricing, now).request("/reviews/stream", {
+  createApp(adapter, pricing, options).request("/reviews/stream", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -100,6 +131,26 @@ describe("API routes", () => {
   it("returns 400 for an empty change description", async () => {
     const { adapter, stream } = createFakeAdapter();
     const response = await postReview(adapter, "   ");
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "changeDescription is required.",
+    });
+    expect(stream).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 for an invalid request body", async () => {
+    const { adapter, stream } = createFakeAdapter();
+    const response = await createApp(adapter, pricing).request(
+      "/reviews/stream",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: "{invalid-json",
+      },
+    );
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
@@ -156,7 +207,7 @@ describe("API routes", () => {
       const response = await postReview(
         adapter,
         "Increase session expiration.",
-        now,
+        { now },
       );
 
       await response.text();
@@ -203,7 +254,7 @@ describe("API routes", () => {
       const response = await postReview(
         adapter,
         "Increase session expiration.",
-        now,
+        { now },
       );
 
       await response.text();
@@ -232,7 +283,7 @@ describe("API routes", () => {
       const response = await postReview(
         adapter,
         "Increase session expiration.",
-        now,
+        { now },
       );
 
       await response.text();
@@ -260,9 +311,12 @@ describe("API routes", () => {
     }
   });
 
-  it("transforms an adapter exception into an SSE error event", async () => {
+  it("preserves deltas and maps a provider error without logging usage or latency", async () => {
     const consoleInfo = vi
       .spyOn(console, "info")
+      .mockImplementation(() => undefined);
+    const consoleError = vi
+      .spyOn(console, "error")
       .mockImplementation(() => undefined);
 
     try {
@@ -272,13 +326,17 @@ describe("API routes", () => {
       } satisfies GenerationStreamEvent;
       const { adapter } = createFakeAdapter({
         events: [partialEvent],
-        error: new Error("Provider stream failed."),
+        error: new GenerationError({
+          code: "provider-unavailable",
+          message: "Provider stream failed.",
+          retryable: true,
+        }),
       });
       const now = createFakeClock([100, 125, 325]);
       const response = await postReview(
         adapter,
         "Increase session expiration.",
-        now,
+        { now },
       );
 
       expect(response.status).toBe(200);
@@ -287,18 +345,135 @@ describe("API routes", () => {
           `event: text-delta\ndata: ${JSON.stringify(partialEvent)}\n\n`,
           `event: error\ndata: ${JSON.stringify({
             type: "error",
-            message: "Provider stream failed.",
+            code: "provider-unavailable",
+            message: "The AI provider is temporarily unavailable.",
+            retryable: true,
           })}\n\n`,
         ].join(""),
       );
-      const logs = consoleInfo.mock.calls.map(([message]) =>
+      const infoLogs = consoleInfo.mock.calls.map(([message]) =>
+        JSON.parse(String(message)),
+      );
+      const errorLogs = consoleError.mock.calls.map(([message]) =>
         JSON.parse(String(message)),
       );
 
-      expect(logs.filter((log) => log.event === "ai.usage")).toHaveLength(0);
-      expect(logs.filter((log) => log.event === "ai.latency")).toHaveLength(0);
+      expect(errorLogs.filter((log) => log.event === "ai.error")).toHaveLength(
+        1,
+      );
+      expect(infoLogs.filter((log) => log.event === "ai.usage")).toHaveLength(
+        0,
+      );
+      expect(infoLogs.filter((log) => log.event === "ai.latency")).toHaveLength(
+        0,
+      );
     } finally {
       consoleInfo.mockRestore();
+      consoleError.mockRestore();
+    }
+  });
+
+  it("aborts the adapter and emits a retryable timeout error", async () => {
+    vi.useFakeTimers();
+    const consoleInfo = vi
+      .spyOn(console, "info")
+      .mockImplementation(() => undefined);
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+
+    try {
+      const { adapter, stream } = createAbortAwareAdapter();
+      const response = await postReview(
+        adapter,
+        "Increase session expiration.",
+        { generationTimeoutMs: 1_000 },
+      );
+      const responseText = response.text();
+
+      await vi.advanceTimersByTimeAsync(1_000);
+
+      expect(stream.mock.calls[0]?.[1]?.signal?.aborted).toBe(true);
+      await expect(responseText).resolves.toBe(
+        `event: error\ndata: ${JSON.stringify({
+          type: "error",
+          code: "timeout",
+          message: "The review took too long and was stopped.",
+          retryable: true,
+        })}\n\n`,
+      );
+
+      const infoLogs = consoleInfo.mock.calls.map(([message]) =>
+        JSON.parse(String(message)),
+      );
+      const errorLogs = consoleError.mock.calls.map(([message]) =>
+        JSON.parse(String(message)),
+      );
+
+      expect(errorLogs.filter((log) => log.event === "ai.error")).toHaveLength(
+        1,
+      );
+      expect(infoLogs.filter((log) => log.event === "ai.usage")).toHaveLength(
+        0,
+      );
+      expect(infoLogs.filter((log) => log.event === "ai.latency")).toHaveLength(
+        0,
+      );
+    } finally {
+      consoleInfo.mockRestore();
+      consoleError.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it("aborts the adapter and logs cancellation without logging an error", async () => {
+    const consoleInfo = vi
+      .spyOn(console, "info")
+      .mockImplementation(() => undefined);
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+
+    try {
+      const { adapter, stream } = createAbortAwareAdapter();
+      const response = await postReview(
+        adapter,
+        "Increase session expiration.",
+      );
+      const reader = response.body?.getReader();
+
+      expect(reader).toBeDefined();
+      const pendingRead = reader?.read();
+
+      await vi.waitFor(() => expect(stream).toHaveBeenCalledTimes(1));
+      await reader?.cancel();
+      await pendingRead;
+      await vi.waitFor(() =>
+        expect(stream.mock.calls[0]?.[1]?.signal?.aborted).toBe(true),
+      );
+
+      const infoLogs = consoleInfo.mock.calls.map(([message]) =>
+        JSON.parse(String(message)),
+      );
+      const errorLogs = consoleError.mock.calls.map(([message]) =>
+        JSON.parse(String(message)),
+      );
+
+      expect(
+        infoLogs.filter((log) => log.event === "ai.cancelled"),
+      ).toHaveLength(1);
+      expect(errorLogs.filter((log) => log.event === "ai.error")).toHaveLength(
+        0,
+      );
+      expect(infoLogs.filter((log) => log.event === "ai.usage")).toHaveLength(
+        0,
+      );
+      expect(infoLogs.filter((log) => log.event === "ai.latency")).toHaveLength(
+        0,
+      );
+    } finally {
+      consoleInfo.mockRestore();
+      consoleError.mockRestore();
     }
   });
 });

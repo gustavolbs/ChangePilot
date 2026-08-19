@@ -29,3 +29,10 @@ export {
   calculateGenerationLatency,
   createGenerationLatencyRecord,
 } from "./observability/generation-latency.js";
+
+export {
+  GenerationError,
+  type GenerationErrorCode,
+  type GenerationErrorOptions,
+  normalizeGenerationError,
+} from "./generation/generation-error.js";

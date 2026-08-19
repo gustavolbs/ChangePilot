@@ -7,6 +7,9 @@ import {
   createUsageCostRecord,
   type MonotonicClock,
   createGenerationLatencyRecord,
+  GenerationError,
+  normalizeGenerationError,
+  type GenerationErrorCode,
 } from "@changepilot/ai";
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
@@ -15,6 +18,7 @@ export function createReviewStreamRoutes(
   adapter: StreamingGenerationAdapter,
   pricing: ModelPricing,
   now: MonotonicClock,
+  generationTimeoutMs: number,
 ) {
   const routes = new Hono();
 
@@ -54,10 +58,25 @@ export function createReviewStreamRoutes(
     } satisfies GenerationRequest;
 
     return streamSSE(c, async (stream) => {
-      const providerController = new AbortController();
+      const disconnectController = new AbortController();
+      const timeoutController = new AbortController();
+      const providerSignal = AbortSignal.any([
+        disconnectController.signal,
+        timeoutController.signal,
+      ]);
+      const timeoutId = setTimeout(() => {
+        timeoutController.abort();
+      }, generationTimeoutMs);
 
       stream.onAbort(() => {
-        providerController.abort();
+        disconnectController.abort();
+
+        console.info(
+          JSON.stringify({
+            event: "ai.cancelled",
+            feature: "change-review",
+          }),
+        );
       });
 
       const providerStartedAtMs = now();
@@ -66,7 +85,7 @@ export function createReviewStreamRoutes(
 
       try {
         for await (const event of adapter.stream(request, {
-          signal: providerController.signal,
+          signal: providerSignal,
         })) {
           const eventReceivedAtMs = now();
 
@@ -113,23 +132,70 @@ export function createReviewStreamRoutes(
           });
         }
       } catch (error) {
-        if (providerController.signal.aborted) {
+        if (disconnectController.signal.aborted) {
           return;
         }
+
+        const generationError = timeoutController.signal.aborted
+          ? new GenerationError({
+              code: "timeout",
+              message: "Generation exceeded the application timeout.",
+              retryable: true,
+              cause: error,
+            })
+          : normalizeGenerationError(error);
+
+        console.error(
+          JSON.stringify({
+            event: "ai.error",
+            feature: "change-review",
+            code: generationError.code,
+            retryable: generationError.retryable,
+            message: generationError.message,
+          }),
+        );
 
         await stream.writeSSE({
           event: "error",
           data: JSON.stringify({
             type: "error",
-            message:
-              error instanceof Error
-                ? error.message
-                : "Unknown streaming error.",
+            code: generationError.code,
+            message: getPublicReviewErrorMessage(generationError.code),
+            retryable: generationError.retryable,
           }),
         });
+      } finally {
+        clearTimeout(timeoutId);
       }
     });
   });
 
   return routes;
 }
+
+const getPublicReviewErrorMessage = (code: GenerationErrorCode): string => {
+  switch (code) {
+    case "invalid-request":
+      return "The AI request is invalid.";
+
+    case "authentication":
+    case "permission-denied":
+    case "quota-exceeded":
+      return "The AI service is not correctly available.";
+
+    case "rate-limit":
+      return "The AI service is busy. Try again shortly.";
+
+    case "provider-unavailable":
+      return "The AI provider is temporarily unavailable.";
+
+    case "timeout":
+      return "The review took too long and was stopped.";
+
+    case "cancelled":
+      return "The review was cancelled.";
+
+    case "unknown":
+      return "An unexpected generation error occurred.";
+  }
+};

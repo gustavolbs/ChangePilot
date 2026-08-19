@@ -157,13 +157,13 @@
 
 ## 01.15 — Errors, Timeout e Cancellation
 
-- [ ] Erros HTTP
-- [ ] Erros do provider
-- [ ] Invalid requests
-- [ ] Timeout
-- [ ] AbortController
-- [ ] Cancellation propagation
-- [ ] Erros recuperáveis vs não recuperáveis
+- [x] Erros HTTP
+- [x] Erros do provider
+- [x] Invalid requests
+- [x] Timeout
+- [x] AbortController
+- [x] Cancellation propagation
+- [x] Erros recuperáveis vs não recuperáveis
 
 ## 01.16 — Retry e Rate Limiting
 
