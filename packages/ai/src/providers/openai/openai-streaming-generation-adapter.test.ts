@@ -95,6 +95,32 @@ const createCompleted = (
   sequence_number: sequenceNumber,
 });
 
+const createFailed = (): Extract<
+  ResponseStreamEvent,
+  { type: "response.failed" }
+> => ({
+  type: "response.failed",
+  response: createProviderResponse({
+    error: {
+      code: "server_error",
+      message: "OpenAI response failed.",
+    },
+    status: "failed",
+  }),
+  sequence_number: 1,
+});
+
+const createErrorEvent = (): Extract<
+  ResponseStreamEvent,
+  { type: "error" }
+> => ({
+  type: "error",
+  code: "server_error",
+  message: "OpenAI stream failed.",
+  param: null,
+  sequence_number: 1,
+});
+
 const createFakeStream = (
   events: readonly ResponseStreamEvent[],
 ): AsyncIterable<ResponseStreamEvent> => ({
@@ -109,6 +135,12 @@ const createStreamFake = (events: readonly ResponseStreamEvent[]) =>
   vi.fn(
     async (_request: OpenAIStreamingRequest, _signal?: OpenAIStreamingSignal) =>
       createFakeStream(events),
+  );
+
+const createRejectedStreamFake = (error: unknown) =>
+  vi.fn(
+    async (_request: OpenAIStreamingRequest, _signal?: OpenAIStreamingSignal) =>
+      Promise.reject(error),
   );
 
 const collectEvents = async (
@@ -266,5 +298,95 @@ describe("createOpenAIStreamingGenerationAdapter", () => {
       /stream.*ended.*without.*terminal|completed/i,
     );
     expect(createStream).toHaveBeenCalledTimes(1);
+  });
+
+  it("maps response.failed to provider-unavailable", async () => {
+    const adapter = createOpenAIStreamingGenerationAdapter({
+      model,
+      createStream: createStreamFake([createFailed()]),
+    });
+
+    await expect(collectEvents(adapter.stream(request))).rejects.toMatchObject({
+      code: "provider-unavailable",
+      retryable: true,
+    });
+  });
+
+  it("maps an error event to provider-unavailable", async () => {
+    const adapter = createOpenAIStreamingGenerationAdapter({
+      model,
+      createStream: createStreamFake([createErrorEvent()]),
+    });
+
+    await expect(collectEvents(adapter.stream(request))).rejects.toMatchObject({
+      code: "provider-unavailable",
+      retryable: true,
+    });
+  });
+
+  it("maps an HTTP 401 error to authentication", async () => {
+    const adapter = createOpenAIStreamingGenerationAdapter({
+      model,
+      createStream: createRejectedStreamFake({
+        status: 401,
+        message: "Invalid API key.",
+      }),
+    });
+
+    await expect(collectEvents(adapter.stream(request))).rejects.toMatchObject({
+      code: "authentication",
+      retryable: false,
+    });
+  });
+
+  it("maps an HTTP 429 error to a retryable rate limit", async () => {
+    const adapter = createOpenAIStreamingGenerationAdapter({
+      model,
+      createStream: createRejectedStreamFake({
+        status: 429,
+        message: "Too many requests.",
+      }),
+    });
+
+    await expect(collectEvents(adapter.stream(request))).rejects.toMatchObject({
+      code: "rate-limit",
+      retryable: true,
+    });
+  });
+
+  it("maps exhausted credits to a non-retryable quota error", async () => {
+    const adapter = createOpenAIStreamingGenerationAdapter({
+      model,
+      createStream: createRejectedStreamFake({
+        status: 429,
+        code: "credit_balance_exhausted",
+        message: "Credit balance exhausted.",
+      }),
+    });
+
+    await expect(collectEvents(adapter.stream(request))).rejects.toMatchObject({
+      code: "quota-exceeded",
+      retryable: false,
+    });
+  });
+
+  it("maps an error to cancelled when the signal is aborted", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const adapter = createOpenAIStreamingGenerationAdapter({
+      model,
+      createStream: createRejectedStreamFake(new Error("Request aborted.")),
+    });
+
+    await expect(
+      collectEvents(
+        adapter.stream(request, {
+          signal: controller.signal,
+        }),
+      ),
+    ).rejects.toMatchObject({
+      code: "cancelled",
+      retryable: false,
+    });
   });
 });

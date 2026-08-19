@@ -173,6 +173,65 @@ describe("review stream", () => {
     ).toThrow("Invalid finished event.");
   });
 
+  it("parses a complete error event", () => {
+    expect(
+      parseReviewStreamEvent(
+        JSON.stringify({
+          type: "error",
+          code: "provider-unavailable",
+          message: "The AI provider is temporarily unavailable.",
+          retryable: true,
+        }),
+      ),
+    ).toEqual({
+      type: "error",
+      code: "provider-unavailable",
+      message: "The AI provider is temporarily unavailable.",
+      retryable: true,
+    });
+  });
+
+  it("rejects an unknown error code", () => {
+    expect(() =>
+      parseReviewStreamEvent(
+        JSON.stringify({
+          type: "error",
+          code: "unsupported-error",
+          message: "Unexpected failure.",
+          retryable: false,
+        }),
+      ),
+    ).toThrow("Invalid error event.");
+  });
+
+  it("rejects a non-boolean retryable value", () => {
+    expect(() =>
+      parseReviewStreamEvent(
+        JSON.stringify({
+          type: "error",
+          code: "provider-unavailable",
+          message: "The AI provider is temporarily unavailable.",
+          retryable: "yes",
+        }),
+      ),
+    ).toThrow("Invalid error event.");
+  });
+
+  it("moves an error to error state while preserving partial output", () => {
+    const state = reduceReviewGeneration(startWithPartialOutput(), {
+      type: "error",
+      code: "provider-unavailable",
+      message: "The AI provider is temporarily unavailable.",
+      retryable: true,
+    });
+
+    expect(state).toMatchObject({
+      status: "error",
+      output: "Partial review.",
+      error: "The AI provider is temporarily unavailable.",
+    });
+  });
+
   it("calculates client latency from the request and token timestamps", () => {
     expect(
       calculateClientLatency({
@@ -223,7 +282,12 @@ describe("review stream", () => {
     await readReviewStream(
       createResponse([
         createFrame({ type: "text-delta", delta: "Partial review." }),
-        createFrame({ type: "error", message: "Provider stream failed." }),
+        createFrame({
+          type: "error",
+          code: "provider-unavailable",
+          message: "Provider stream failed.",
+          retryable: true,
+        }),
       ]),
       (event) => {
         state = reduceReviewGeneration(state, event);
@@ -254,7 +318,9 @@ describe("review stream", () => {
     } catch (error) {
       state = reduceReviewGeneration(state, {
         type: "error",
+        code: "unknown",
         message: getReviewStreamErrorMessage(error),
+        retryable: false,
       });
     }
 

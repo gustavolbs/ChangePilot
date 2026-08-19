@@ -98,7 +98,9 @@ export default function Home() {
 
       dispatch({
         type: "error",
+        code: "unknown",
         message: getReviewStreamErrorMessage(error),
+        retryable: false,
       });
     } finally {
       if (abortControllerRef.current === controller) {

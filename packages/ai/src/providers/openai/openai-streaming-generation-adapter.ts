@@ -2,10 +2,10 @@ import type {
   ResponseCreateParamsStreaming,
   ResponseStreamEvent,
 } from "openai/resources/responses/responses.mjs";
+import { GenerationError } from "../../generation/generation-error.js";
 import type { StreamingGenerationAdapter } from "../../generation/streaming-generation.js";
 import { mapRequest, mapResponse } from "./mappers.js";
 import { validateGenerationRequest, validateModel } from "./validators.js";
-import { GenerationError } from "../../generation/generation-error.js";
 
 export type OpenAIStreamingGenerationAdapterOptions = Readonly<{
   model: string;
@@ -74,11 +74,17 @@ export function createOpenAIStreamingGenerationAdapter(
           if (event.type === "error") {
             throw new GenerationError({
               code: "provider-unavailable",
-              message: event.message ?? `OpenAI an error occurred`,
+              message: event.message ?? "An OpenAI error occurred.",
               retryable: true,
             });
           }
         }
+
+        throw new GenerationError({
+          code: "provider-unavailable",
+          message: "OpenAI stream ended without a terminal response.",
+          retryable: true,
+        });
       } catch (error: unknown) {
         throw mapOpenAIError(error, streamOptions?.signal);
       }
@@ -90,6 +96,19 @@ const mapOpenAIError = (
   error: unknown,
   signal?: AbortSignal,
 ): GenerationError => {
+  if (signal?.aborted) {
+    return new GenerationError({
+      code: "cancelled",
+      message: error instanceof Error ? error.message : "Generation cancelled.",
+      retryable: false,
+      cause: error,
+    });
+  }
+
+  if (error instanceof GenerationError) {
+    return error;
+  }
+
   const candidate =
     typeof error === "object" && error !== null
       ? (error as {
@@ -102,121 +121,88 @@ const mapOpenAIError = (
   const name = typeof candidate.name === "string" ? candidate.name : undefined;
   const status =
     typeof candidate.status === "number" ? candidate.status : undefined;
+  const code = typeof candidate.code === "string" ? candidate.code : undefined;
   const message =
     typeof candidate.message === "string"
       ? candidate.message
       : "Unknown OpenAI error.";
-  const unknownError: GenerationError = {
-    code: "unknown",
-    message,
-    name: name ?? "UnknownError",
-    retryable: false,
-    cause: "UnknownError.",
-    stack: undefined,
-  };
 
-  /**
-   * ERROR DETECTION STARTS HERE
-   */
-  if (candidate) {
-    if (signal !== undefined) {
-      return {
-        code: "cancelled",
-        message,
-        name: name ?? "AbortError",
-        retryable: false,
-        cause: "Aborted signal or AbortError",
-        stack: undefined,
-      };
-    }
-
-    if (status === 408 || candidate.name === "APIConnectionTimeoutError") {
-      return {
-        code: "timeout",
-        message,
-        name: name ?? "APIConnectionTimeoutError",
-        retryable: true,
-        cause: "APIConnectionTimeoutError or HTTP 408 happened.",
-        stack: undefined,
-      };
-    }
-
-    if (status && [400, 404, 422].includes(status)) {
-      return {
-        code: "invalid-request",
-        message,
-        name: name ?? "InvalidRequestError",
-        retryable: false,
-        cause: "HTTP 400, 404 or 422 happened.",
-        stack: undefined,
-      };
-    }
-
-    if (status === 401) {
-      return {
-        code: "authentication",
-        message,
-        name: name ?? "AuthenticationError",
-        retryable: false,
-        cause: "AuthenticationError.",
-        stack: undefined,
-      };
-    }
-
-    if (status === 403) {
-      return {
-        code: "permission-denied",
-        message,
-        name: name ?? "PermissionDeniedError",
-        retryable: false,
-        cause: "PermissionDeniedError.",
-        stack: undefined,
-      };
-    }
-
-    if (status === 429) {
-      const lowerName = name?.toLowerCase();
-      if (
-        lowerName?.includes("quota") ||
-        lowerName?.includes("credits") ||
-        lowerName?.includes("spend")
-      ) {
-        return {
-          code: "quota-exceeded",
-          message,
-          name: name ?? "QuotaExceededError",
-          retryable: false,
-          cause: "QuotaExceededError.",
-          stack: undefined,
-        };
-      }
-
-      return {
-        code: "rate-limit",
-        message,
-        name: name ?? "RateLimitError",
-        retryable: true,
-        cause: "RateLimitError.",
-        stack: undefined,
-      };
-    }
-
-    if (
-      (status && (status === 409 || status >= 500)) ||
-      candidate.name === "APIConnectionError"
-    ) {
-      return {
-        code: "provider-unavailable",
-        message,
-        name: name ?? "ProviderUnavailableError",
-        retryable: true,
-        cause: "ProviderUnavailableError.",
-        stack: undefined,
-      };
-    }
-
-    return unknownError;
+  if (status === 408 || name === "APIConnectionTimeoutError") {
+    return new GenerationError({
+      code: "timeout",
+      message,
+      retryable: true,
+      cause: error,
+    });
   }
 
-  return unknownError;
+  if (status !== undefined && [400, 404, 422].includes(status)) {
+    return new GenerationError({
+      code: "invalid-request",
+      message,
+      retryable: false,
+      cause: error,
+    });
+  }
+
+  if (status === 401) {
+    return new GenerationError({
+      code: "authentication",
+      message,
+      retryable: false,
+      cause: error,
+    });
+  }
+
+  if (status === 403) {
+    return new GenerationError({
+      code: "permission-denied",
+      message,
+      retryable: false,
+      cause: error,
+    });
+  }
+
+  if (status === 429) {
+    const quotaIndicator = `${name ?? ""} ${code ?? ""}`.toLowerCase();
+
+    if (
+      quotaIndicator.includes("quota") ||
+      quotaIndicator.includes("credit") ||
+      quotaIndicator.includes("spend")
+    ) {
+      return new GenerationError({
+        code: "quota-exceeded",
+        message,
+        retryable: false,
+        cause: error,
+      });
+    }
+
+    return new GenerationError({
+      code: "rate-limit",
+      message,
+      retryable: true,
+      cause: error,
+    });
+  }
+
+  if (
+    (status !== undefined && (status === 409 || status >= 500)) ||
+    name === "APIConnectionError"
+  ) {
+    return new GenerationError({
+      code: "provider-unavailable",
+      message,
+      retryable: true,
+      cause: error,
+    });
+  }
+
+  return new GenerationError({
+    code: "unknown",
+    message,
+    retryable: false,
+    cause: error,
+  });
 };
