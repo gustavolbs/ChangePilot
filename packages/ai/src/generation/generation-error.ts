@@ -13,12 +13,14 @@ export type GenerationErrorOptions = Readonly<{
   code: GenerationErrorCode;
   message: string;
   retryable: boolean;
+  retryAfterMs?: number;
   cause?: unknown;
 }>;
 
 export class GenerationError extends Error {
   readonly code: GenerationErrorCode;
   readonly retryable: boolean;
+  readonly retryAfterMs: number | undefined;
 
   constructor(options: GenerationErrorOptions) {
     super(options.message, {
@@ -28,6 +30,7 @@ export class GenerationError extends Error {
     this.name = "GenerationError";
     this.code = options.code;
     this.retryable = options.retryable;
+    this.retryAfterMs = options.retryAfterMs;
   }
 }
 

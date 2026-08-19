@@ -36,3 +36,15 @@ export {
   type GenerationErrorOptions,
   normalizeGenerationError,
 } from "./generation/generation-error.js";
+
+export {
+  type CalculateRetryDelayInput,
+  type RetryPolicy,
+  type RetrySleeper,
+  type ShouldRetryGenerationInput,
+  calculateRetryDelayMs,
+  defaultGenerationRetryPolicy,
+  parseRetryAfterMs,
+  shouldRetryGeneration,
+  sleepForRetry,
+} from "./generation/generation-retry.js";
