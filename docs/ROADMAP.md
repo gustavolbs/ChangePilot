@@ -178,13 +178,13 @@
 
 ## 01.17 — Provider Abstraction
 
-- [ ] Revisar código existente
-- [ ] Identificar diferenças entre domínio e provider
-- [ ] Definir fronteira mínima
-- [ ] Adapter pattern
-- [ ] Implementar segundo provider ou fake provider
-- [ ] Comparar providers
-- [ ] Evitar lowest-common-denominator abstraction
+- [x] Revisar código existente
+- [x] Identificar diferenças entre domínio e provider
+- [x] Definir fronteira mínima
+- [x] Adapter pattern
+- [x] Implementar segundo provider ou fake provider
+- [x] Comparar providers
+- [x] Evitar lowest-common-denominator abstraction
 
 ## 01.18 — Testing da camada AI
 
