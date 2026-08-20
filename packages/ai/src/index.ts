@@ -48,3 +48,10 @@ export {
   shouldRetryGeneration,
   sleepForRetry,
 } from "./generation/generation-retry.js";
+
+export {
+  createFakeStreamingGenerationAdapter,
+  type FakeStreamingGenerationAdapterOptions,
+} from "./providers/fake/fake-streaming-generation-adapter.js";
+
+export { fakeModelPricing } from "./providers/fake/model-pricing.js";
