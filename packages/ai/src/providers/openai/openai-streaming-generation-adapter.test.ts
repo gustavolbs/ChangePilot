@@ -9,8 +9,8 @@ import { GenerationError } from "../../generation/generation-error.js";
 import type { GenerationRequest } from "../../generation/generation.js";
 import type { RetryPolicy } from "../../generation/generation-retry.js";
 import { collectGenerationStreamEvents } from "../../testing/collect-generation-stream-events.js";
-import { createGenerationParameters } from "../../labs/generation-parameters.js";
-import { createMessageSequence } from "../../labs/message-sequence.js";
+import { createGenerationParameters } from "../../generation/generation-parameters.js";
+import { createMessageSequence } from "../../generation/message-sequence.js";
 import {
   createOpenAIStreamingGenerationAdapter,
   type OpenAIStreamingGenerationAdapterOptions,
