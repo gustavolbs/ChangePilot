@@ -198,13 +198,13 @@
 
 ## 01.19 — Fechamento do módulo de LLM Engineering
 
-- [ ] Refatorar `packages/ai`
-- [ ] Atualizar ARCHITECTURE.md
-- [ ] Atualizar PROJECT_STATE.md
-- [ ] Criar ADRs necessários
-- [ ] Revisar custos e observabilidade
-- [ ] Documentar decisões
-- [ ] Consolidar aprendizado
+- [x] Refatorar `packages/ai`
+- [x] Atualizar ARCHITECTURE.md
+- [x] Atualizar PROJECT_STATE.md
+- [x] Criar ADRs necessários
+- [x] Revisar custos e observabilidade
+- [x] Documentar decisões
+- [x] Consolidar aprendizado
 
 ---
 
