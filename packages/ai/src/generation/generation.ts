@@ -1,5 +1,5 @@
-import type { GenerationParameters } from "../labs/generation-parameters.js";
-import type { ConversationMessage } from "../labs/message-sequence.js";
+import type { GenerationParameters } from "./generation-parameters.js";
+import type { ConversationMessage } from "./message-sequence.js";
 
 export type TokenUsage = Readonly<{
   inputTokens: number;

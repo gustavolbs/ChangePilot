@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 
-import { createGenerationParameters } from "../../labs/generation-parameters.js";
-import { createMessageSequence } from "../../labs/message-sequence.js";
+import { createGenerationParameters } from "../../generation/generation-parameters.js";
+import { createMessageSequence } from "../../generation/message-sequence.js";
 import { createOpenAIStreamingGenerationAdapter } from "./openai-streaming-generation-adapter.js";
 import type {
   GenerationRequest,

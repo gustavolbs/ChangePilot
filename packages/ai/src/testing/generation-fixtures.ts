@@ -1,6 +1,6 @@
 import type { GenerationRequest } from "../generation/generation.js";
-import { createGenerationParameters } from "../labs/generation-parameters.js";
-import { createMessageSequence } from "../labs/message-sequence.js";
+import { createGenerationParameters } from "../generation/generation-parameters.js";
+import { createMessageSequence } from "../generation/message-sequence.js";
 
 type GenerationRequestFixtureInput = Readonly<{
   instruction?: string;

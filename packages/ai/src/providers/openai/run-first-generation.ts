@@ -1,8 +1,8 @@
 import OpenAI from "openai";
 
 import type { GenerationRequest } from "../../generation/generation.js";
-import { createGenerationParameters } from "../../labs/generation-parameters.js";
-import { createMessageSequence } from "../../labs/message-sequence.js";
+import { createGenerationParameters } from "../../generation/generation-parameters.js";
+import { createMessageSequence } from "../../generation/message-sequence.js";
 import { createOpenAIGenerationAdapter } from "./openai-generation-adapter.js";
 
 const getRequiredEnvironmentVariable = (name: string): string => {
