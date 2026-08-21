@@ -6,8 +6,8 @@ import {
   type ToolDefinition,
   type ToolGenerationRequest,
 } from "../../generation/tool-calling.js";
-import { createGenerationParameters } from "../../labs/generation-parameters.js";
-import type { ConversationMessage } from "../../labs/message-sequence.js";
+import { createGenerationParameters } from "../../generation/generation-parameters.js";
+import type { ConversationMessage } from "../../generation/message-sequence.js";
 import { getChangeEvidence } from "../../reviews/get-change-evidence.js";
 import { createOpenAIGenerationAdapter } from "./openai-generation-adapter.js";
 import type { OpenAIResponseSnapshot } from "./types.js";

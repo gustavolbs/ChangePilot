@@ -1,8 +1,8 @@
 import { describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import type { StructuredGenerationRequest } from "../../generation/structured-generation.js";
-import { createGenerationParameters } from "../../labs/generation-parameters.js";
-import type { ConversationMessage } from "../../labs/message-sequence.js";
+import { createGenerationParameters } from "../../generation/generation-parameters.js";
+import type { ConversationMessage } from "../../generation/message-sequence.js";
 import {
   type ChangeReview,
   ChangeReviewSchema,
