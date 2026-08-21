@@ -1,40 +1,27 @@
 import { describe, expect, it } from "vitest";
 
-import type { GenerationRequest } from "../../generation/generation.js";
-import type { GenerationStreamEvent } from "../../generation/streaming-generation.js";
-import { createGenerationParameters } from "../../labs/generation-parameters.js";
-import { createMessageSequence } from "../../labs/message-sequence.js";
+import { collectGenerationStreamEvents } from "../../testing/collect-generation-stream-events.js";
 import { createFakeStreamingGenerationAdapter } from "./fake-streaming-generation-adapter.js";
+import { runStreamingGenerationAdapterContract } from "../../testing/streaming-generation-adapter-contract.js";
+import { createGenerationRequestFixture } from "../../testing/generation-fixtures.js";
 
-const request: GenerationRequest = {
-  messages: createMessageSequence(
-    "Review only the supplied change description.",
-    [],
-    "Review the local fake provider.",
-  ),
-  parameters: createGenerationParameters({
-    sampling: {
-      strategy: "temperature",
-      temperature: 0,
-    },
-    maxOutputTokens: 500,
-    stopSequences: [],
-  }),
-};
-
-const collectEvents = async (
-  iterable: AsyncIterable<GenerationStreamEvent>,
-): Promise<GenerationStreamEvent[]> => {
-  const events: GenerationStreamEvent[] = [];
-
-  for await (const event of iterable) {
-    events.push(event);
-  }
-
-  return events;
-};
+const request = createGenerationRequestFixture({
+  instruction: "Review this change.",
+  currentUserMessage: "Increase session duration from 24 hours to 30 days.",
+  maxOutputTokens: 100,
+});
 
 describe("createFakeStreamingGenerationAdapter", () => {
+  runStreamingGenerationAdapterContract({
+    name: "Fake",
+    createAdapter: () =>
+      createFakeStreamingGenerationAdapter({
+        model: "fake-model",
+        chunks: ["First ", "second."],
+        createResponseId: () => "fake_response_1",
+      }),
+  });
+
   it("emits deterministic chunks followed by a completed response", async () => {
     const adapter = createFakeStreamingGenerationAdapter({
       model: "fake-review-v1",
@@ -42,7 +29,7 @@ describe("createFakeStreamingGenerationAdapter", () => {
       createResponseId: () => "fake_response_1",
     });
 
-    const events = await collectEvents(adapter.stream(request));
+    const events = await collectGenerationStreamEvents(adapter.stream(request));
 
     expect(events).toEqual([
       {

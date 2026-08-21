@@ -188,13 +188,13 @@
 
 ## 01.18 — Testing da camada AI
 
-- [ ] Unit tests sem provider real
-- [ ] Fake provider
-- [ ] Fixtures
-- [ ] Contract tests
-- [ ] Integration tests
-- [ ] Evitar testes frágeis baseados em texto exato
-- [ ] Definir fronteira entre tests e evals
+- [x] Unit tests sem provider real
+- [x] Fake provider
+- [x] Fixtures
+- [x] Contract tests
+- [x] Integration tests
+- [x] Evitar testes frágeis baseados em texto exato
+- [x] Definir fronteira entre tests e evals
 
 ## 01.19 — Fechamento do módulo de LLM Engineering
 
