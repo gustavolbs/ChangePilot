@@ -1,27 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import type { GenerationRequest } from "../../generation/generation.js";
 import { collectGenerationStreamEvents } from "../../testing/collect-generation-stream-events.js";
-import { createGenerationParameters } from "../../labs/generation-parameters.js";
-import { createMessageSequence } from "../../labs/message-sequence.js";
 import { createFakeStreamingGenerationAdapter } from "./fake-streaming-generation-adapter.js";
 import { runStreamingGenerationAdapterContract } from "../../testing/streaming-generation-adapter-contract.js";
+import { createGenerationRequestFixture } from "../../testing/generation-fixtures.js";
 
-const request: GenerationRequest = {
-  messages: createMessageSequence(
-    "Review only the supplied change description.",
-    [],
-    "Review the local fake provider.",
-  ),
-  parameters: createGenerationParameters({
-    sampling: {
-      strategy: "temperature",
-      temperature: 0,
-    },
-    maxOutputTokens: 500,
-    stopSequences: [],
-  }),
-};
+const request = createGenerationRequestFixture({
+  instruction: "Review this change.",
+  currentUserMessage: "Increase session duration from 24 hours to 30 days.",
+  maxOutputTokens: 100,
+});
 
 describe("createFakeStreamingGenerationAdapter", () => {
   runStreamingGenerationAdapterContract({
