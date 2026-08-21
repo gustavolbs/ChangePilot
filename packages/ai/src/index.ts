@@ -5,8 +5,8 @@ export type {
   StreamingGenerationAdapter,
 } from "./generation/streaming-generation.js";
 
-export { createGenerationParameters } from "./labs/generation-parameters.js";
-export { createMessageSequence } from "./labs/message-sequence.js";
+export { createGenerationParameters } from "./generation/generation-parameters.js";
+export { createMessageSequence } from "./generation/message-sequence.js";
 export { createOpenAIStreamingGenerationAdapter } from "./providers/openai/openai-streaming-generation-adapter.js";
 
 export { getOpenAIModelPricing } from "./providers/openai/model-pricing.js";

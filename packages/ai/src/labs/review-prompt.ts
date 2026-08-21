@@ -2,7 +2,7 @@ import type {
   ConversationMessage,
   InstructionMessage,
   UserMessage,
-} from "./message-sequence.js";
+} from "../generation/message-sequence.js";
 
 export type ReviewPromptInput = Readonly<{
   objective: string;

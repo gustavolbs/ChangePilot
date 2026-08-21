@@ -1,5 +1,5 @@
 import type { GenerationRequest } from "../../generation/generation.js";
-import type { ConversationMessage } from "../../labs/message-sequence.js";
+import type { ConversationMessage } from "../../generation/message-sequence.js";
 import type { ToolDefinition } from "../../generation/tool-calling.js";
 import type { OpenAIResponseSnapshot } from "./types.js";
 
