@@ -18,7 +18,8 @@
     "generate:tools:openai": "node --env-file=../../.env --import tsx src/providers/openai/run-first-tool-generation.ts",
     "generate:stream:openai": "node --env-file=../../.env --import tsx src/providers/openai/run-first-streaming-generation.ts",
     "generate:structured:openai": "node --env-file=../../.env --import tsx src/providers/openai/run-first-structured-generation.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:integration:openai": "node --env-file=../../.env --import tsx src/providers/openai/run-streaming-integration-test.ts"
   },
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",

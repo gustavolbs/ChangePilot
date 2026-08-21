@@ -8,13 +8,14 @@ import { describe, expect, it, vi } from "vitest";
 import { GenerationError } from "../../generation/generation-error.js";
 import type { GenerationRequest } from "../../generation/generation.js";
 import type { RetryPolicy } from "../../generation/generation-retry.js";
-import type { GenerationStreamEvent } from "../../generation/streaming-generation.js";
+import { collectGenerationStreamEvents } from "../../testing/collect-generation-stream-events.js";
 import { createGenerationParameters } from "../../labs/generation-parameters.js";
 import { createMessageSequence } from "../../labs/message-sequence.js";
 import {
   createOpenAIStreamingGenerationAdapter,
   type OpenAIStreamingGenerationAdapterOptions,
 } from "./openai-streaming-generation-adapter.js";
+import { runStreamingGenerationAdapterContract } from "../../testing/streaming-generation-adapter-contract.js";
 
 type OpenAIStreamingRequest = Parameters<
   OpenAIStreamingGenerationAdapterOptions["createStream"]
@@ -152,19 +153,20 @@ const createRejectedStreamFake = (error: unknown) =>
       Promise.reject(error),
   );
 
-const collectEvents = async (
-  stream: AsyncIterable<GenerationStreamEvent>,
-): Promise<GenerationStreamEvent[]> => {
-  const events: GenerationStreamEvent[] = [];
-
-  for await (const event of stream) {
-    events.push(event);
-  }
-
-  return events;
-};
-
 describe("createOpenAIStreamingGenerationAdapter", () => {
+  runStreamingGenerationAdapterContract({
+    name: "OpenAI",
+    createAdapter: () =>
+      createOpenAIStreamingGenerationAdapter({
+        model,
+        createStream: createStreamFake([
+          createTextDelta("First ", 1),
+          createTextDelta("second.", 2),
+          createCompleted(createProviderResponse(), 3),
+        ]),
+      }),
+  });
+
   it("sends the OpenAI request with stream enabled", async () => {
     const createStream = createStreamFake([
       createTextDelta("Review completed.", 1),
@@ -175,7 +177,7 @@ describe("createOpenAIStreamingGenerationAdapter", () => {
       createStream,
     });
 
-    await collectEvents(adapter.stream(request));
+    await collectGenerationStreamEvents(adapter.stream(request));
 
     expect(createStream).toHaveBeenCalledTimes(1);
     expect(createStream.mock.calls[0]?.[0]).toMatchObject({
@@ -195,7 +197,7 @@ describe("createOpenAIStreamingGenerationAdapter", () => {
       createStream,
     });
 
-    await collectEvents(
+    await collectGenerationStreamEvents(
       adapter.stream(request, {
         signal: controller.signal,
       }),
@@ -221,7 +223,7 @@ describe("createOpenAIStreamingGenerationAdapter", () => {
       createStream,
     });
 
-    const events = await collectEvents(adapter.stream(request));
+    const events = await collectGenerationStreamEvents(adapter.stream(request));
 
     expect(
       events
@@ -241,7 +243,7 @@ describe("createOpenAIStreamingGenerationAdapter", () => {
       createStream,
     });
 
-    const events = await collectEvents(adapter.stream(request));
+    const events = await collectGenerationStreamEvents(adapter.stream(request));
 
     expect(events.filter((event) => event.type === "finished")).toHaveLength(1);
   });
@@ -274,7 +276,7 @@ describe("createOpenAIStreamingGenerationAdapter", () => {
       createStream,
     });
 
-    const events = await collectEvents(adapter.stream(request));
+    const events = await collectGenerationStreamEvents(adapter.stream(request));
 
     expect(events.filter((event) => event.type === "finished")).toEqual([
       {
@@ -303,9 +305,9 @@ describe("createOpenAIStreamingGenerationAdapter", () => {
       createStream,
     });
 
-    await expect(collectEvents(adapter.stream(request))).rejects.toThrow(
-      /stream.*ended.*without.*terminal|completed/i,
-    );
+    await expect(
+      collectGenerationStreamEvents(adapter.stream(request)),
+    ).rejects.toThrow(/stream.*ended.*without.*terminal|completed/i);
     expect(createStream).toHaveBeenCalledTimes(1);
   });
 
@@ -316,7 +318,9 @@ describe("createOpenAIStreamingGenerationAdapter", () => {
       retryPolicy: noRetryPolicy,
     });
 
-    await expect(collectEvents(adapter.stream(request))).rejects.toMatchObject({
+    await expect(
+      collectGenerationStreamEvents(adapter.stream(request)),
+    ).rejects.toMatchObject({
       code: "provider-unavailable",
       retryable: true,
     });
@@ -329,7 +333,9 @@ describe("createOpenAIStreamingGenerationAdapter", () => {
       retryPolicy: noRetryPolicy,
     });
 
-    await expect(collectEvents(adapter.stream(request))).rejects.toMatchObject({
+    await expect(
+      collectGenerationStreamEvents(adapter.stream(request)),
+    ).rejects.toMatchObject({
       code: "provider-unavailable",
       retryable: true,
     });
@@ -344,7 +350,9 @@ describe("createOpenAIStreamingGenerationAdapter", () => {
       }),
     });
 
-    await expect(collectEvents(adapter.stream(request))).rejects.toMatchObject({
+    await expect(
+      collectGenerationStreamEvents(adapter.stream(request)),
+    ).rejects.toMatchObject({
       code: "authentication",
       retryable: false,
     });
@@ -360,7 +368,9 @@ describe("createOpenAIStreamingGenerationAdapter", () => {
       retryPolicy: noRetryPolicy,
     });
 
-    await expect(collectEvents(adapter.stream(request))).rejects.toMatchObject({
+    await expect(
+      collectGenerationStreamEvents(adapter.stream(request)),
+    ).rejects.toMatchObject({
       code: "rate-limit",
       retryable: true,
     });
@@ -376,7 +386,9 @@ describe("createOpenAIStreamingGenerationAdapter", () => {
       }),
     });
 
-    await expect(collectEvents(adapter.stream(request))).rejects.toMatchObject({
+    await expect(
+      collectGenerationStreamEvents(adapter.stream(request)),
+    ).rejects.toMatchObject({
       code: "quota-exceeded",
       retryable: false,
     });
@@ -391,7 +403,7 @@ describe("createOpenAIStreamingGenerationAdapter", () => {
     });
 
     await expect(
-      collectEvents(
+      collectGenerationStreamEvents(
         adapter.stream(request, {
           signal: controller.signal,
         }),
@@ -411,7 +423,9 @@ describe("createOpenAIStreamingGenerationAdapter", () => {
       }),
     });
 
-    await expect(collectEvents(adapter.stream(request))).rejects.toMatchObject({
+    await expect(
+      collectGenerationStreamEvents(adapter.stream(request)),
+    ).rejects.toMatchObject({
       code: "cancelled",
       retryable: false,
     });
@@ -435,7 +449,7 @@ describe("createOpenAIStreamingGenerationAdapter", () => {
       random,
     });
 
-    const events = await collectEvents(adapter.stream(request));
+    const events = await collectGenerationStreamEvents(adapter.stream(request));
 
     expect(createStream).toHaveBeenCalledTimes(2);
     expect(sleep).toHaveBeenCalledTimes(1);
@@ -475,7 +489,7 @@ describe("createOpenAIStreamingGenerationAdapter", () => {
       },
     });
 
-    const events = await collectEvents(adapter.stream(request));
+    const events = await collectGenerationStreamEvents(adapter.stream(request));
 
     expect(sleep).toHaveBeenCalledTimes(1);
     expect(sleep).toHaveBeenCalledWith(2_125, undefined);
@@ -506,7 +520,7 @@ describe("createOpenAIStreamingGenerationAdapter", () => {
       random,
     });
 
-    const events = await collectEvents(adapter.stream(request));
+    const events = await collectGenerationStreamEvents(adapter.stream(request));
 
     expect(createStream).toHaveBeenCalledTimes(3);
     expect(sleep).toHaveBeenCalledTimes(2);
@@ -529,7 +543,7 @@ describe("createOpenAIStreamingGenerationAdapter", () => {
     let thrownError: unknown;
 
     try {
-      await collectEvents(adapter.stream(request));
+      await collectGenerationStreamEvents(adapter.stream(request));
     } catch (error) {
       thrownError = error;
     }
@@ -557,7 +571,9 @@ describe("createOpenAIStreamingGenerationAdapter", () => {
       random,
     });
 
-    await expect(collectEvents(adapter.stream(request))).rejects.toMatchObject({
+    await expect(
+      collectGenerationStreamEvents(adapter.stream(request)),
+    ).rejects.toMatchObject({
       code: "authentication",
       retryable: false,
     });
@@ -589,7 +605,9 @@ describe("createOpenAIStreamingGenerationAdapter", () => {
       },
     });
 
-    await expect(collectEvents(adapter.stream(request))).rejects.toMatchObject({
+    await expect(
+      collectGenerationStreamEvents(adapter.stream(request)),
+    ).rejects.toMatchObject({
       code: "rate-limit",
       retryable: true,
       retryAfterMs: 10_000,
@@ -619,7 +637,7 @@ describe("createOpenAIStreamingGenerationAdapter", () => {
     });
 
     await expect(
-      collectEvents(
+      collectGenerationStreamEvents(
         adapter.stream(request, {
           signal: controller.signal,
         }),
