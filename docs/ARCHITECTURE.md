@@ -2,8 +2,9 @@
 
 ## Scope
 
-This document describes the current ChangePilot architecture after completing
-the LLM Engineering Foundations milestone.
+This document describes the current ChangePilot architecture as the Code
+Intelligence milestone begins, after completion of the LLM Engineering
+Foundations milestone.
 
 It documents what exists today. Planned capabilities such as repository
 ingestion, embeddings, RAG, MCP and agents belong to the roadmap and are not
@@ -35,6 +36,9 @@ The current runtime consists of:
 - an independent AI package
 - an OpenAI provider implementation
 - a deterministic Fake provider implementation
+
+The monorepo also contains an early `code-intelligence` package. It is not part
+of the current runtime or the web/API flow shown above.
 
 ## Web application
 
@@ -389,6 +393,32 @@ product.
 Generation parameters and message sequences were moved into `generation`
 because they are used by runtime contracts, adapters, API composition, runners
 and tests.
+
+## Code Intelligence package
+
+Location:
+
+```text
+packages/code-intelligence
+```
+
+This package is the future boundary for primitives that help ChangePilot
+understand software repositories, such as representation, retrieval and
+repository-aware search.
+
+At this stage it contains only an educational literal-search lab. The lab
+performs case-insensitive substring matching and intentionally demonstrates the
+gap between textual matching and semantic relevance.
+
+The package currently has:
+
+- no embedding implementation
+- no semantic search
+- no repository ingestion
+- no runtime consumer
+
+It is intentionally absent from the web/API runtime diagram because no
+application flow depends on it yet.
 
 ## Review streaming lifecycle
 
