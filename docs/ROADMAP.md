@@ -212,9 +212,9 @@
 
 ## 02.1 — O problema da busca semântica
 
-- [ ] Busca textual vs semântica
-- [ ] Por que LLM não conhece automaticamente nosso repositório
-- [ ] Introdução a embeddings
+- [x] Busca textual vs semântica
+- [x] Por que LLM não conhece automaticamente nosso repositório
+- [x] Introdução a embeddings
 
 ## 02.2 — Embeddings
 

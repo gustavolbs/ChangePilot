@@ -1,10 +1,10 @@
 # Project State
 
-Last updated: 2026-08-21
+Last updated: 2026-08-22
 
 ## Current milestone
 
-01 — LLM Engineering Foundations completed.
+02 — Embeddings and Code Intelligence in progress.
 
 ## Project status
 
@@ -21,6 +21,9 @@ The system can run with either:
 
 The current product does not inspect repositories or GitHub pull requests
 automatically.
+
+An early `packages/code-intelligence` package now exists as an educational
+foundation, but it is not connected to the product runtime.
 
 ## Product capability currently available
 
@@ -196,6 +199,20 @@ Retry does not occur after text has been emitted.
 The OpenAI SDK's internal retry is disabled so that retry ownership remains in
 the ChangePilot adapter.
 
+## Code Intelligence baseline
+
+The `packages/code-intelligence` package is intended to concentrate future
+primitives for understanding software repositories.
+
+It currently contains one literal-search lab. The baseline performs
+case-insensitive substring matching and is deliberately limited: it can find
+identifiers that occur in candidate text, but it returns no result when a query
+is only semantically related to the code.
+
+This is an educational experiment for making the textual-versus-semantic gap
+observable. It is not consumed by the web application, API or AI generation
+runtime.
+
 ## Usage, cost and observability
 
 ### Usage
@@ -290,6 +307,7 @@ The project currently has offline tests for:
 - frontend reducers
 - API routes
 - provider composition
+- the literal-search baseline and its semantic gap
 
 ### Provider simulation
 
@@ -402,7 +420,7 @@ The project does not currently provide:
 
 - embeddings
 - semantic similarity
-- lexical search
+- runtime repository search
 - vector storage
 - metadata filtering
 - ranking
@@ -460,21 +478,22 @@ roadmap.
 
 ## Current objective
 
-Begin the Code Intelligence foundation required for ChangePilot to understand
-software repositories.
+Continue the Code Intelligence foundation required for ChangePilot to
+understand software repositories.
 
 The immediate goals are:
 
-- understand textual versus semantic search
 - learn embeddings
 - represent text and code as vectors
 - measure similarity
 - ingest repository documents
 - prepare semantic code search
 
-## Next milestone
+## Current milestone direction
 
-02 — Embeddings and Code Intelligence.
+02 — Embeddings and Code Intelligence is in progress.
 
-The first lesson will introduce the problem of semantic search and explain why
-an LLM does not automatically know the contents of a repository.
+The literal-search baseline now demonstrates why textual matching cannot close
+the semantic gap and why an LLM does not automatically know the contents of a
+repository. Embeddings and semantic search remain future work and current
+limitations.
