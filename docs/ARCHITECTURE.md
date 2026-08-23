@@ -406,13 +406,24 @@ This package is the future boundary for primitives that help ChangePilot
 understand software repositories, such as representation, retrieval and
 repository-aware search.
 
-At this stage it contains only an educational literal-search lab. The lab
-performs case-insensitive substring matching and intentionally demonstrates the
-gap between textual matching and semantic relevance.
+At this stage it contains:
+
+- an educational literal-search lab that performs case-insensitive substring
+  matching and intentionally demonstrates the gap between textual matching and
+  semantic relevance
+- a provider-independent `EmbeddingVector` primitive that preserves component
+  order, derives dimensionality from the component count and accepts only
+  finite numeric components
+
+Embedding vectors defensively copy their input values, so their dimensions and
+components are isolated from later mutations to the original array.
 
 The package currently has:
 
-- no embedding implementation
+- no embedding model
+- no embedding provider
+- no real embedding generation
+- no vector similarity operations
 - no semantic search
 - no repository ingestion
 - no runtime consumer
