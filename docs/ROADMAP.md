@@ -227,11 +227,11 @@
 
 ## 02.3 — Similaridade vetorial
 
-- [ ] Cosine similarity
-- [ ] Dot product
-- [ ] Euclidean distance
-- [ ] Ranking por similaridade
-- [ ] Implementar busca vetorial simples em memória
+- [x] Cosine similarity
+- [x] Dot product
+- [x] Euclidean distance
+- [x] Ranking por similaridade
+- [x] Implementar busca vetorial simples em memória
 
 ## 02.4 — Ingestão de repositórios
 
