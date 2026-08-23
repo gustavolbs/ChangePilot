@@ -218,12 +218,12 @@
 
 ## 02.2 — Embeddings
 
-- [ ] Vetores
-- [ ] Dimensionalidade
-- [ ] Similaridade semântica
-- [ ] Embedding de texto
-- [ ] Embedding de código
-- [ ] Modelos de embeddings
+- [x] Vetores
+- [x] Dimensionalidade
+- [x] Similaridade semântica
+- [x] Embedding de texto
+- [x] Embedding de código
+- [x] Modelos de embeddings
 
 ## 02.3 — Similaridade vetorial
 

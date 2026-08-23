@@ -204,10 +204,20 @@ the ChangePilot adapter.
 The `packages/code-intelligence` package is intended to concentrate future
 primitives for understanding software repositories.
 
-It currently contains one literal-search lab. The baseline performs
-case-insensitive substring matching and is deliberately limited: it can find
-identifiers that occur in candidate text, but it returns no result when a query
-is only semantically related to the code.
+It currently contains a literal-search lab and a provider-independent vector
+representation. The literal baseline performs case-insensitive substring
+matching and is deliberately limited: it can find identifiers that occur in
+candidate text, but it returns no result when a query is only semantically
+related to the code.
+
+`EmbeddingVector` preserves component order, calculates dimensionality from the
+number of components, rejects empty vectors and accepts only finite numeric
+components. It also copies its input to prevent later mutations to the original
+array from changing the vector.
+
+Vectors are currently constructed only directly in code or in test fixtures.
+No model has generated an embedding, and no semantic meaning, similarity or
+ranking has been calculated from these values.
 
 This is an educational experiment for making the textual-versus-semantic gap
 observable. It is not consumed by the web application, API or AI generation
@@ -418,7 +428,7 @@ The current review depends entirely on a manually supplied description.
 
 The project does not currently provide:
 
-- embeddings
+- generated embeddings
 - semantic similarity
 - runtime repository search
 - vector storage
