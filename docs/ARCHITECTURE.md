@@ -414,6 +414,10 @@ At this stage it contains:
 - a provider-independent `EmbeddingVector` primitive that preserves component
   order, derives dimensionality from the component count and accepts only
   finite numeric components
+- pure dot product, Euclidean distance and cosine similarity operations that
+  require equal vector dimensionality
+- an exact in-memory vector search that uses cosine similarity for its first
+  descending ranking and preserves input order for tied scores
 
 Embedding vectors defensively copy their input values, so their dimensions and
 components are isolated from later mutations to the original array.
@@ -423,8 +427,8 @@ The package currently has:
 - no embedding model
 - no embedding provider
 - no real embedding generation
-- no vector similarity operations
-- no semantic search
+- no persistence or vector database
+- no semantic search backed by model-produced embeddings
 - no repository ingestion
 - no runtime consumer
 

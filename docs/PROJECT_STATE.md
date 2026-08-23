@@ -215,9 +215,17 @@ number of components, rejects empty vectors and accepts only finite numeric
 components. It also copies its input to prevent later mutations to the original
 array from changing the vector.
 
-Vectors are currently constructed only directly in code or in test fixtures.
-No model has generated an embedding, and no semantic meaning, similarity or
-ranking has been calculated from these values.
+The package now provides pure dot product, Euclidean distance and cosine
+similarity operations. Every operation requires equal dimensionality. Cosine
+similarity additionally rejects either input when its magnitude is zero.
+
+An exact in-memory search calculates cosine similarity for every candidate and
+ranks all results in descending order while preserving the original order for
+tied scores.
+
+Vectors are still constructed only directly in code or in test fixtures. No
+model has generated an embedding and no semantic meaning has been produced;
+the current scores and ranking demonstrate only the mathematical mechanics.
 
 This is an educational experiment for making the textual-versus-semantic gap
 observable. It is not consumed by the web application, API or AI generation
@@ -495,7 +503,6 @@ The immediate goals are:
 
 - learn embeddings
 - represent text and code as vectors
-- measure similarity
 - ingest repository documents
 - prepare semantic code search
 
@@ -503,7 +510,6 @@ The immediate goals are:
 
 02 — Embeddings and Code Intelligence is in progress.
 
-The literal-search baseline now demonstrates why textual matching cannot close
-the semantic gap and why an LLM does not automatically know the contents of a
-repository. Embeddings and semantic search remain future work and current
-limitations.
+The package now demonstrates literal matching, vector representation, three
+similarity metrics and exact in-memory ranking. Model-produced embeddings and
+semantic repository search remain future work and current limitations.
