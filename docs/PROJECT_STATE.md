@@ -224,15 +224,18 @@ ranks all results in descending order while preserving the original order for
 tied scores.
 
 Repository file discovery is now the first implemented stage of repository
-ingestion. It recursively identifies regular files and returns globally sorted,
+ingestion. It recursively produces path-selected candidates as globally sorted,
 portable paths relative to the repository root while ignoring symbolic links.
+The `.git` and `node_modules` structural exclusions are applied at every level
+and cannot be reverted by project rules. Only the `.gitignore` found directly
+at the discovery root is applied, using case-sensitive matching; nested
+`.gitignore` files remain ordinary candidates.
 
 `RepositoryDocument` is the minimal contract that associates a repository path
 with its exact textual content. Discovery and document creation are not
 connected yet: discovered paths are not read or converted into documents.
-Ignore rules and generated-file filtering are also not implemented, so files
-such as `.git/config`, dependencies and generated artifacts still appear as
-discovery candidates.
+Binary detection, generated-file filtering and file-size limits are also not
+implemented.
 
 Vectors are still constructed only directly in code or in test fixtures. No
 model has generated an embedding and no semantic meaning has been produced;
@@ -523,5 +526,6 @@ The immediate goals are:
 
 The package now demonstrates literal matching, vector representation, three
 similarity metrics, exact in-memory ranking and the first repository-discovery
-primitive. Model-produced embeddings, safe document loading and semantic
-repository search remain future work and current limitations.
+primitive with path-based selection. Model-produced embeddings, safe document
+loading and semantic repository search remain future work and current
+limitations.

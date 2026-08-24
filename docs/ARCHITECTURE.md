@@ -422,6 +422,10 @@ At this stage it contains:
   path and its exact textual content
 - recursive discovery of regular repository files using relative, portable and
   globally sorted paths while ignoring symbolic links
+- structural exclusion of `.git` and `node_modules` directories at every level,
+  which cannot be reversed by project ignore rules
+- case-sensitive application of the root `.gitignore` to files and directories,
+  with ignored directories pruned before recursive traversal
 
 Embedding vectors defensively copy their input values, so their dimensions and
 components are isolated from later mutations to the original array.
@@ -433,9 +437,10 @@ The package currently has:
 - no real embedding generation
 - no persistence or vector database
 - no semantic search backed by model-produced embeddings
-- no `.gitignore` or other ignore rules during file discovery
-- no reading of discovered file contents
+- no application of nested `.gitignore` files
+- no reading of discovered candidate contents
 - no binary-file detection
+- no generated-file detection
 - no file-size limit
 - no complete repository-ingestion pipeline
 - no runtime consumer
