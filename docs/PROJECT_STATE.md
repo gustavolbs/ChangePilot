@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-08-22
+Last updated: 2026-08-24
 
 ## Current milestone
 
@@ -222,6 +222,17 @@ similarity additionally rejects either input when its magnitude is zero.
 An exact in-memory search calculates cosine similarity for every candidate and
 ranks all results in descending order while preserving the original order for
 tied scores.
+
+Repository file discovery is now the first implemented stage of repository
+ingestion. It recursively identifies regular files and returns globally sorted,
+portable paths relative to the repository root while ignoring symbolic links.
+
+`RepositoryDocument` is the minimal contract that associates a repository path
+with its exact textual content. Discovery and document creation are not
+connected yet: discovered paths are not read or converted into documents.
+Ignore rules and generated-file filtering are also not implemented, so files
+such as `.git/config`, dependencies and generated artifacts still appear as
+discovery candidates.
 
 Vectors are still constructed only directly in code or in test fixtures. No
 model has generated an embedding and no semantic meaning has been produced;
@@ -511,5 +522,6 @@ The immediate goals are:
 02 — Embeddings and Code Intelligence is in progress.
 
 The package now demonstrates literal matching, vector representation, three
-similarity metrics and exact in-memory ranking. Model-produced embeddings and
-semantic repository search remain future work and current limitations.
+similarity metrics, exact in-memory ranking and the first repository-discovery
+primitive. Model-produced embeddings, safe document loading and semantic
+repository search remain future work and current limitations.
