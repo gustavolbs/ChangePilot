@@ -1,5 +1,37 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import createIgnore from "ignore";
+
+const isErrorWithCode = (error: unknown, code: string): boolean =>
+  typeof error === "object" &&
+  error !== null &&
+  "code" in error &&
+  error.code === code;
+
+const readRootGitIgnore = async (rootPath: string): Promise<string> => {
+  const gitIgnorePath = path.join(rootPath, ".gitignore");
+
+  try {
+    const stats = await fs.lstat(gitIgnorePath);
+
+    if (stats.isSymbolicLink()) {
+      return "";
+    }
+
+    return await fs.readFile(gitIgnorePath, "utf8");
+  } catch (error) {
+    if (isErrorWithCode(error, "ENOENT")) {
+      return "";
+    }
+
+    throw error;
+  }
+};
+
+const EXCLUDED_PATHS = [".git", "node_modules"];
+const isStructurallyIgnored = (entryName: string): boolean => {
+  return EXCLUDED_PATHS.includes(entryName);
+};
 
 export const discoverRepositoryFilePaths = async (
   rootPath: string,
@@ -9,6 +41,9 @@ export const discoverRepositoryFilePaths = async (
   }
 
   const filePaths: string[] = [];
+  const gitIgnore = createIgnore({ ignorecase: false }).add(
+    await readRootGitIgnore(rootPath),
+  );
 
   const visitDirectory = async (
     absoluteDirectory: string,
@@ -22,9 +57,20 @@ export const discoverRepositoryFilePaths = async (
       const absolutePath = path.join(absoluteDirectory, entry.name);
       const relativePath = path.posix.join(relativeDirectory, entry.name);
 
+      if (
+        (!entry.isDirectory() && !entry.isFile()) ||
+        isStructurallyIgnored(entry.name)
+      ) {
+        continue;
+      }
+
       if (entry.isDirectory()) {
+        if (gitIgnore.ignores(`${relativePath}/`)) {
+          continue;
+        }
+
         await visitDirectory(absolutePath, relativePath);
-      } else if (entry.isFile()) {
+      } else if (!gitIgnore.ignores(relativePath)) {
         filePaths.push(relativePath);
       }
     }

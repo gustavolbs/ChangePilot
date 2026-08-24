@@ -238,13 +238,19 @@
 - [x] Ler estrutura de diretórios
 - [x] Representar RepositoryDocument
 
-## 02.4B — Filtragem e carregamento seguro
+## 02.4B — Seleção por caminhos e .gitignore
 
-- [ ] Ignorar arquivos irrelevantes
-- [ ] `.gitignore`
+- [x] Excluir `.git` e `node_modules` em qualquer nível
+- [x] Aplicar o `.gitignore` da raiz com matching case-sensitive
+- [x] Aplicar regras a arquivos e diretórios
+- [x] Podar diretórios ignorados antes da recursão
+
+## 02.4C — Carregamento textual seguro
+
 - [ ] Binários
 - [ ] Arquivos gerados
 - [ ] Limites de tamanho
+- [ ] Carregamento de documentos
 
 ## 02.5 — Chunking
 
