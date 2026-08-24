@@ -9,8 +9,16 @@ const isErrorWithCode = (error: unknown, code: string): boolean =>
   error.code === code;
 
 const readRootGitIgnore = async (rootPath: string): Promise<string> => {
+  const gitIgnorePath = path.join(rootPath, ".gitignore");
+
   try {
-    return await fs.readFile(path.join(rootPath, ".gitignore"), "utf8");
+    const stats = await fs.lstat(gitIgnorePath);
+
+    if (stats.isSymbolicLink()) {
+      return "";
+    }
+
+    return await fs.readFile(gitIgnorePath, "utf8");
   } catch (error) {
     if (isErrorWithCode(error, "ENOENT")) {
       return "";

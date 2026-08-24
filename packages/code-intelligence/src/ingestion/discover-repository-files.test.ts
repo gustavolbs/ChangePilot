@@ -287,6 +287,19 @@ describe("discoverRepositoryFilePaths", () => {
     await expect(discoverRepositoryFilePaths(rootPath)).resolves.toEqual([]);
   });
 
+  it("does not follow a symbolic root .gitignore", async () => {
+    const rootPath = await createTemporaryDirectory();
+    const targetRootPath = await createTemporaryDirectory();
+    const targetPath = path.join(targetRootPath, "external.gitignore");
+    await fs.writeFile(targetPath, "*.ts\n");
+    await fs.symlink(targetPath, path.join(rootPath, ".gitignore"), "file");
+    await createFile(rootPath, "src/index.ts");
+
+    await expect(discoverRepositoryFilePaths(rootPath)).resolves.toEqual([
+      "src/index.ts",
+    ]);
+  });
+
   it("ignores a symbolic link to a directory", async () => {
     const rootPath = await createTemporaryDirectory();
     const targetRootPath = await createTemporaryDirectory();
