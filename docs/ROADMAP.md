@@ -233,15 +233,18 @@
 - [x] Ranking por similaridade
 - [x] Implementar busca vetorial simples em memória
 
-## 02.4 — Ingestão de repositórios
+## 02.4A — Descoberta de arquivos e RepositoryDocument
 
-- [ ] Ler estrutura de diretórios
+- [x] Ler estrutura de diretórios
+- [x] Representar RepositoryDocument
+
+## 02.4B — Filtragem e carregamento seguro
+
 - [ ] Ignorar arquivos irrelevantes
 - [ ] `.gitignore`
 - [ ] Binários
 - [ ] Arquivos gerados
 - [ ] Limites de tamanho
-- [ ] Representar RepositoryDocument
 
 ## 02.5 — Chunking
 

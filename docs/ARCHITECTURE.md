@@ -418,6 +418,10 @@ At this stage it contains:
   require equal vector dimensionality
 - an exact in-memory vector search that uses cosine similarity for its first
   descending ranking and preserves input order for tied scores
+- a minimal `RepositoryDocument` representation containing only a repository
+  path and its exact textual content
+- recursive discovery of regular repository files using relative, portable and
+  globally sorted paths while ignoring symbolic links
 
 Embedding vectors defensively copy their input values, so their dimensions and
 components are isolated from later mutations to the original array.
@@ -429,7 +433,11 @@ The package currently has:
 - no real embedding generation
 - no persistence or vector database
 - no semantic search backed by model-produced embeddings
-- no repository ingestion
+- no `.gitignore` or other ignore rules during file discovery
+- no reading of discovered file contents
+- no binary-file detection
+- no file-size limit
+- no complete repository-ingestion pipeline
 - no runtime consumer
 
 It is intentionally absent from the web/API runtime diagram because no
