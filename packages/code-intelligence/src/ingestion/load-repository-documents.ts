@@ -6,6 +6,7 @@ import {
   type RepositoryDocument,
 } from "../repositories/repository-document.js";
 import { discoverRepositoryFilePaths } from "./discover-repository-files.js";
+import { isGeneratedRepositoryDocument } from "./generated-repository-document.js";
 
 export const MAX_REPOSITORY_DOCUMENT_SIZE_BYTES = 1_048_576;
 
@@ -78,7 +79,11 @@ export const loadRepositoryDocuments = async (
         continue;
       }
 
-      documents.push(createRepositoryDocument(relativePath, content));
+      const document = createRepositoryDocument(relativePath, content);
+
+      if (!isGeneratedRepositoryDocument(document)) {
+        documents.push(document);
+      }
     } finally {
       await fileHandle.close();
     }
