@@ -245,12 +245,15 @@
 - [x] Aplicar regras a arquivos e diretórios
 - [x] Podar diretórios ignorados antes da recursão
 
-## 02.4C — Carregamento textual seguro
+## 02.4C — Carregamento textual limitado
 
-- [ ] Binários
+- [x] Classificação binária/UTF-8
+- [x] Limite de tamanho
+- [x] Carregamento de documentos
+
+## 02.4D — Detecção de arquivos gerados
+
 - [ ] Arquivos gerados
-- [ ] Limites de tamanho
-- [ ] Carregamento de documentos
 
 ## 02.5 — Chunking
 
