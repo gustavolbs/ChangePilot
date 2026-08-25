@@ -426,6 +426,19 @@ At this stage it contains:
   which cannot be reversed by project ignore rules
 - case-sensitive application of the root `.gitignore` to files and directories,
   with ignored directories pruned before recursive traversal
+- sequential loading of discovered candidates into the existing
+  `RepositoryDocument` representation
+
+The loading stage opens each candidate for reading and checks its state through
+the open file handle. Files larger than the fixed 1 MiB document limit are
+omitted without reading their content. Candidates within the initial limit are
+read using an explicit buffer capped at 1 MiB plus one byte, allowing growth
+beyond the limit to be detected without truncating content.
+
+Accepted documents must contain valid UTF-8 without NUL bytes. UTF-8 text,
+including whitespace, line endings and a BOM, is preserved exactly. Candidates
+are processed sequentially so document order remains the order produced by
+discovery.
 
 Embedding vectors defensively copy their input values, so their dimensions and
 components are isolated from later mutations to the original array.
@@ -438,11 +451,9 @@ The package currently has:
 - no persistence or vector database
 - no semantic search backed by model-produced embeddings
 - no application of nested `.gitignore` files
-- no reading of discovered candidate contents
-- no binary-file detection
 - no generated-file detection
-- no file-size limit
-- no complete repository-ingestion pipeline
+- no exclusion reasons for omitted candidates
+- no complete repository-ingestion runtime pipeline
 - no runtime consumer
 
 It is intentionally absent from the web/API runtime diagram because no
