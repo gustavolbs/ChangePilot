@@ -253,7 +253,7 @@
 
 ## 02.4D — Detecção de arquivos gerados
 
-- [ ] Arquivos gerados
+- [x] Arquivos gerados
 
 ## 02.5 — Chunking
 

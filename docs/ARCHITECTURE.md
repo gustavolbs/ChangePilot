@@ -440,6 +440,17 @@ including whitespace, line endings and a BOM, is preserved exactly. Candidates
 are processed sequentially so document order remains the order produced by
 discovery.
 
+After limited textual loading creates a `RepositoryDocument`, a conservative
+generated-document classifier examines its basename and the first 20 logical
+content lines. A basename containing `.generated.` or ending in `.generated`
+is classified case-insensitively. Header evidence consists of `@generated`, or
+a same-line combination of `do not edit` with `code generated`, `automatically
+generated` or `auto-generated`, also case-insensitively. Classified documents
+do not continue to the loader result.
+
+Classification happens after the candidate has been read and validated. There
+are no broad directory blacklists, configurable patterns or exclusion reasons.
+
 Embedding vectors defensively copy their input values, so their dimensions and
 components are isolated from later mutations to the original array.
 
@@ -451,7 +462,6 @@ The package currently has:
 - no persistence or vector database
 - no semantic search backed by model-produced embeddings
 - no application of nested `.gitignore` files
-- no generated-file detection
 - no exclusion reasons for omitted candidates
 - no complete repository-ingestion runtime pipeline
 - no runtime consumer

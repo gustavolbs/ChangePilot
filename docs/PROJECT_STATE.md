@@ -237,8 +237,14 @@ connected by a sequential loading stage. Only valid UTF-8 content without NUL
 bytes is converted into documents, and files larger than 1 MiB are omitted.
 This stage returns no reason for an omission.
 
-Generated-file detection is not implemented. A generated file that contains
-valid text and remains within the size limit is still loaded as a document.
+Documents with explicit generation evidence are now omitted after textual
+loading. Recognized signals are `.generated.` or a `.generated` suffix in the
+basename, `@generated` in the first 20 lines, and strong same-line combinations
+of a generation phrase with `do not edit`. Matching is case-insensitive.
+
+The policy prioritizes precision: directories named `generated` and lockfiles
+are not excluded automatically. This package remains disconnected from the web,
+API and AI generation runtime.
 
 Vectors are still constructed only directly in code or in test fixtures. No
 model has generated an embedding and no semantic meaning has been produced;
@@ -530,5 +536,5 @@ The immediate goals are:
 The package now demonstrates literal matching, vector representation, three
 similarity metrics, exact in-memory ranking and the first repository-discovery
 primitive with path-based selection and limited textual document loading.
-Model-produced embeddings, generated-file detection and semantic repository
-search remain future work and current limitations.
+Model-produced embeddings and semantic repository search remain future work
+and current limitations.
