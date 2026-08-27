@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-08-25
+Last updated: 2026-08-26
 
 ## Current milestone
 
@@ -245,6 +245,15 @@ of a generation phrase with `do not edit`. Matching is case-insensitive.
 The policy prioritizes precision: directories named `generated` and lockfiles
 are not excluded automatically. This package remains disconnected from the web,
 API and AI generation runtime.
+
+`RepositoryChunk` is now the minimal path, index and content representation for
+document fragments. The first chunking primitive divides a
+`RepositoryDocument` by Unicode code points, preserves exact content and
+supports overlap between adjacent chunks.
+
+Repository chunks are not integrated with embeddings. Recursive, semantic and
+AST-aware chunking are not implemented; fixed-size chunking is currently the
+only concrete strategy.
 
 Vectors are still constructed only directly in code or in test fixtures. No
 model has generated an embedding and no semantic meaning has been produced;
@@ -535,6 +544,6 @@ The immediate goals are:
 
 The package now demonstrates literal matching, vector representation, three
 similarity metrics, exact in-memory ranking and the first repository-discovery
-primitive with path-based selection and limited textual document loading.
-Model-produced embeddings and semantic repository search remain future work
-and current limitations.
+primitive with path-based selection, limited textual document loading and
+fixed-size chunking. Model-produced embeddings, advanced chunking strategies
+and semantic repository search remain future work and current limitations.
