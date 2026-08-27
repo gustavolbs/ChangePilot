@@ -1,7 +1,7 @@
 import type { RepositoryDocument } from "../repositories/repository-document.js";
 import type { RepositoryChunk } from "./repository-chunk.js";
 
-export type FixedSizeRepositoryChunkingOptions = Readonly<{
+export type FixedSizeChunkingOptions = Readonly<{
   chunkSize: number;
   chunkOverlap: number;
 }>;
@@ -9,7 +9,7 @@ export type FixedSizeRepositoryChunkingOptions = Readonly<{
 const validateOptions = ({
   chunkSize,
   chunkOverlap,
-}: FixedSizeRepositoryChunkingOptions): void => {
+}: FixedSizeChunkingOptions): void => {
   if (
     !Number.isFinite(chunkSize) ||
     !Number.isInteger(chunkSize) ||
@@ -28,9 +28,9 @@ const validateOptions = ({
   }
 };
 
-export const chunkRepositoryDocumentByFixedSize = (
+export const chunkRepositoryDocumentByCodePoints = (
   document: RepositoryDocument,
-  options: FixedSizeRepositoryChunkingOptions,
+  options: FixedSizeChunkingOptions,
 ): readonly RepositoryChunk[] => {
   validateOptions(options);
 

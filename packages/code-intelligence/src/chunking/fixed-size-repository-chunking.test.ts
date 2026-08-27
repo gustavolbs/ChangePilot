@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createRepositoryDocument } from "../repositories/repository-document.js";
-import { chunkRepositoryDocumentByFixedSize } from "./fixed-size-repository-chunking.js";
+import { chunkRepositoryDocumentByCodePoints } from "./fixed-size-repository-chunking.js";
 
 const chunk = (
   content: string,
@@ -9,12 +9,12 @@ const chunk = (
   chunkOverlap: number,
   path = "src/index.ts",
 ) =>
-  chunkRepositoryDocumentByFixedSize(createRepositoryDocument(path, content), {
+  chunkRepositoryDocumentByCodePoints(createRepositoryDocument(path, content), {
     chunkSize,
     chunkOverlap,
   });
 
-describe("chunkRepositoryDocumentByFixedSize", () => {
+describe("chunkRepositoryDocumentByCodePoints", () => {
   it("returns an empty array for an empty document", () => {
     expect(chunk("", 4, 1)).toEqual([]);
   });
