@@ -257,13 +257,13 @@
 
 ## 02.5 — Chunking
 
-- [ ] Por que dividir documentos
-- [ ] Fixed-size chunking
-- [ ] Recursive chunking
-- [ ] Semantic chunking
-- [ ] Chunking específico para código
-- [ ] Chunk overlap
-- [ ] Trade-offs de chunk size
+- [x] Por que dividir documentos
+- [x] Fixed-size chunking
+- [x] Recursive chunking
+- [x] Semantic chunking
+- [x] Chunking específico para código
+- [x] Chunk overlap
+- [x] Trade-offs de chunk size
 
 ## 02.6 — AST e análise estrutural de código
 

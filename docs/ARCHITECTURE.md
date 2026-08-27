@@ -428,6 +428,8 @@ At this stage it contains:
   with ignored directories pruned before recursive traversal
 - sequential loading of discovered candidates into the existing
   `RepositoryDocument` representation
+- a minimal `RepositoryChunk` representation and fixed-size repository
+  chunking based on Unicode code points, with configurable per-call overlap
 
 The loading stage opens each candidate for reading and checks its state through
 the open file handle. Files larger than the fixed 1 MiB document limit are
@@ -451,6 +453,11 @@ do not continue to the loader result.
 Classification happens after the candidate has been read and validated. There
 are no broad directory blacklists, configurable patterns or exclusion reasons.
 
+Fixed-size chunking validates chunk size and overlap before processing, copies
+the document path into every chunk and assigns ordered indexes from zero. It
+preserves content exactly and uses overlap only between adjacent chunks,
+stopping as soon as a chunk reaches the end of the document.
+
 Embedding vectors defensively copy their input values, so their dimensions and
 components are isolated from later mutations to the original array.
 
@@ -463,6 +470,8 @@ The package currently has:
 - no semantic search backed by model-produced embeddings
 - no application of nested `.gitignore` files
 - no exclusion reasons for omitted candidates
+- no integration between repository chunks and embeddings
+- no recursive, semantic or AST-aware chunking implementation
 - no complete repository-ingestion runtime pipeline
 - no runtime consumer
 
